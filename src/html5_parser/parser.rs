@@ -14,7 +14,7 @@ use crate::html5_parser::parser::adoption_agency::AdoptionResult;
 use crate::html5_parser::parser::attr_replacements::{
     MATHML_ADJUSTMENTS, SVG_ADJUSTMENTS, XML_ADJUSTMENTS,
 };
-use crate::html5_parser::parser::document::{Document, DocumentType};
+use crate::html5_parser::parser::document::{Document, DocumentFragment, DocumentType};
 use crate::html5_parser::parser::quirks::QuirksMode;
 use crate::html5_parser::tokenizer::state::State;
 use crate::html5_parser::tokenizer::token::Token;
@@ -145,7 +145,7 @@ pub struct Html5Parser<'a> {
     /// Is the current parsing a fragment case
     is_fragment_case: bool,
     /// A reference to the document we are parsing
-    document: Document,
+    document: Rc<RefCell<Document>>,    // A reference to the document we are parsing
     /// Error logger, which is shared with the tokenizer
     error_logger: Rc<RefCell<ErrorLogger>>,
 }
@@ -187,7 +187,7 @@ impl<'a> Html5Parser<'a> {
             active_formatting_elements: vec![],
             is_fragment_case: false,
             error_logger,
-            document: Document::new(),
+            document: Rc::new(RefCell::new(Document::new())),
         }
     }
 
@@ -220,7 +220,7 @@ impl<'a> Html5Parser<'a> {
                         Token::CommentToken { .. } => {
                             let node = self.create_node(&self.current_token, HTML_NAMESPACE);
                             // add to end of the document(node)
-                            self.document.add_node(node, NodeId::default());
+                            self.get_document().add_node(node, NodeId::default());
                         }
                         Token::DocTypeToken {
                             name,
@@ -237,12 +237,12 @@ impl<'a> Html5Parser<'a> {
                             }
 
                             let node = self.create_node(&self.current_token, HTML_NAMESPACE);
-                            self.document.add_node(node, NodeId::root());
+                            self.get_document().add_node(node, NodeId::root());
 
-                            if self.document.doctype != DocumentType::IframeSrcDoc
+                            if self.get_document().doctype != DocumentType::IframeSrcDoc
                                 && self.parser_cannot_change_mode
                             {
-                                self.document.quirks_mode = self.identify_quirks_mode(
+                                self.get_document().quirks_mode = self.identify_quirks_mode(
                                     name,
                                     pub_identifier.clone(),
                                     sys_identifier.clone(),
@@ -253,7 +253,7 @@ impl<'a> Html5Parser<'a> {
                             self.insertion_mode = InsertionMode::BeforeHtml;
                         }
                         Token::StartTagToken { .. } => {
-                            if self.document.doctype != DocumentType::IframeSrcDoc {
+                            if self.get_document().doctype != DocumentType::IframeSrcDoc {
                                 self.parse_error(
                                     ParserError::ExpectedDocTypeButGotStartTag.as_str(),
                                 );
@@ -261,13 +261,13 @@ impl<'a> Html5Parser<'a> {
                             anything_else = true;
                         }
                         Token::EndTagToken { .. } => {
-                            if self.document.doctype != DocumentType::IframeSrcDoc {
+                            if self.get_document().doctype != DocumentType::IframeSrcDoc {
                                 self.parse_error(ParserError::ExpectedDocTypeButGotEndTag.as_str());
                             }
                             anything_else = true;
                         }
                         Token::TextToken { .. } => {
-                            if self.document.doctype != DocumentType::IframeSrcDoc {
+                            if self.get_document().doctype != DocumentType::IframeSrcDoc {
                                 self.parse_error(ParserError::ExpectedDocTypeButGotChars.as_str());
                             }
                             anything_else = true;
@@ -277,7 +277,7 @@ impl<'a> Html5Parser<'a> {
 
                     if anything_else {
                         if self.parser_cannot_change_mode {
-                            self.document.quirks_mode = QuirksMode::Quirks;
+                            self.get_document().quirks_mode = QuirksMode::Quirks;
                         }
 
                         self.insertion_mode = InsertionMode::BeforeHtml;
@@ -294,7 +294,7 @@ impl<'a> Html5Parser<'a> {
                         }
                         Token::CommentToken { .. } => {
                             let node = self.create_node(&self.current_token, HTML_NAMESPACE);
-                            self.document.add_node(node, NodeId::default());
+                            self.get_document().add_node(node, NodeId::default());
                         }
                         Token::TextToken { .. } if self.current_token.is_empty_or_white() => {
                             // ignore token
@@ -1342,7 +1342,7 @@ impl<'a> Html5Parser<'a> {
                         Token::CommentToken { .. } => {
                             let node = self.create_node(&self.current_token, HTML_NAMESPACE);
                             let html_node_id = self.open_elements.first().unwrap_or_default();
-                            self.document.add_node(node, *html_node_id);
+                            self.get_document().add_node(node, *html_node_id);
                         }
                         Token::DocTypeToken { .. } => {
                             self.parse_error("doctype not allowed in after body insertion mode");
@@ -1469,7 +1469,7 @@ impl<'a> Html5Parser<'a> {
                 InsertionMode::AfterAfterBody => match &self.current_token {
                     Token::CommentToken { .. } => {
                         let node = self.create_node(&self.current_token, HTML_NAMESPACE);
-                        self.document.add_node(node, NodeId::default());
+                        self.get_document().add_node(node, NodeId::default());
                     }
                     Token::DocTypeToken { .. } => {
                         self.handle_in_body();
@@ -1496,7 +1496,7 @@ impl<'a> Html5Parser<'a> {
                     match &self.current_token {
                         Token::CommentToken { .. } => {
                             let node = self.create_node(&self.current_token, HTML_NAMESPACE);
-                            self.document.add_node(node, NodeId::default());
+                            self.get_document().add_node(node, NodeId::default());
                         }
                         Token::DocTypeToken { .. } => {
                             self.handle_in_body();
@@ -1527,7 +1527,7 @@ impl<'a> Html5Parser<'a> {
         }
 
         Ok((
-            &mut self.document,
+            &mut self.get_document(),
             self.error_logger.borrow().get_errors().clone(),
         ))
     }
@@ -1867,7 +1867,7 @@ impl<'a> Html5Parser<'a> {
     fn is_in_scope(&self, tag: &str, scope: Scope) -> bool {
         for &node_id in self.open_elements.iter().rev() {
             let node = self
-                .document
+                .get_document()
                 .get_node_by_id(node_id)
                 .expect("node not found");
 
@@ -2456,7 +2456,7 @@ impl<'a> Html5Parser<'a> {
                 self.active_formatting_elements_clear_until_marker();
             }
             Token::StartTagToken { name, .. } if name == "table" => {
-                if self.document.quirks_mode != QuirksMode::Quirks
+                if self.get_document().quirks_mode != QuirksMode::Quirks
                     && self.is_in_scope("p", Scope::Button)
                 {
                     self.close_p_element();
@@ -2733,7 +2733,7 @@ impl<'a> Html5Parser<'a> {
             for idx in (0..self.open_elements.len()).rev() {
                 let node_id = self.open_elements[idx];
                 let node = self
-                    .document
+                    .get_document()
                     .get_node_by_id(node_id)
                     .expect("node not found")
                     .clone();
@@ -2826,7 +2826,7 @@ impl<'a> Html5Parser<'a> {
                 // TODO if the parser was invoked by document.write/writln, set script's element already started flag to true
 
                 self.open_elements.push(node.id.clone());
-                self.document.add_node(node, adjusted_insertion_location);
+                self.get_document_mut().add_node(node, adjusted_insertion_location);
 
                 self.tokenizer.state = State::ScriptDataState;
                 self.original_insertion_mode = self.insertion_mode;
@@ -2840,7 +2840,17 @@ impl<'a> Html5Parser<'a> {
                 anything_else = true;
             }
             Token::StartTagToken { name, .. } if name == "template" => {
-                self.insert_html_element(&self.current_token.clone());
+                let node_id = self.insert_html_element(&self.current_token.clone());
+                let node = get_node_by_id!(self, node_id);
+
+                if let NodeData::Element {
+                    ref mut template_contents,
+                    ..
+                } = node.data
+                {
+                    *template_contents = Some(DocumentFragment::new(self.document.clone(), current_node!(self).id.clone()));
+                }
+
                 self.active_formatting_elements_push_marker();
                 self.frameset_ok = false;
                 self.insertion_mode = InsertionMode::InTemplate;
@@ -3119,7 +3129,7 @@ impl<'a> Html5Parser<'a> {
 
         // Fetch the node we want to push, so we can compare
         let element_node = self
-            .document
+            .get_document()
             .get_node_by_id(node_id)
             .expect("node id not found");
 
@@ -3137,7 +3147,7 @@ impl<'a> Html5Parser<'a> {
             // Fetch the node we want to compare with
             let match_node = match active_elem {
                 ActiveElement::Node(node_id) => self
-                    .document
+                    .get_document()
                     .get_node_by_id(node_id)
                     .expect("node id not found"),
                 ActiveElement::Marker => unreachable!(),
@@ -3214,7 +3224,7 @@ impl<'a> Html5Parser<'a> {
             let node_id = entry.node_id().expect("node id not found");
 
             let entry_node = self
-                .document
+                .get_document()
                 .get_node_by_id(node_id)
                 .expect("node not found")
                 .clone();
@@ -3336,7 +3346,7 @@ impl<'a> Html5Parser<'a> {
         //      push new element queue onto relevant agent custom element reactions stack (???)
 
         //   insert element into adjusted_insert_location
-        let node_id = self.document.add_node(node, adjusted_insert_location);
+        let node_id = self.get_document_mut().add_node(node, adjusted_insert_location);
 
         //     if parser not created as part of html fragment parsing algorithm
         //       pop the top element queue from the relevant agent custom element reactions stack (???)
@@ -3374,37 +3384,45 @@ impl<'a> Html5Parser<'a> {
             None => self.current_node(),
         };
 
-        let mut adjusted_insertion_location = target.id;
+        let adjusted_insertion_location = if self.foster_parenting {
+            target.id
+        } else {
+            // No foster parenting
+            target.id
+        };
 
-        if self.foster_parenting
-            && ["table", "tbody", "thead", "tfoot", "tr"].contains(&target.name.as_str())
-        {
-            /*
-            @todo!()
+        //     && ["table", "tbody", "thead", "tfoot", "tr"].contains(&target.name.as_str())
+        // {
+        //     /*
+        //     @todo!()
+        //
+        //     Run these substeps:
+        //
+        //         Let last template be the last template element in the stack of open elements, if any.
+        //
+        //         Let last table be the last table element in the stack of open elements, if any.
+        //
+        //         If there is a last template and either there is no last table, or there is one, but last template is lower (more recently added) than last table in the stack of open elements, then: let adjusted insertion location be inside last template's template contents, after its last child (if any), and abort these steps.
+        //
+        //         If there is no last table, then let adjusted insertion location be inside the first element in the stack of open elements (the html element), after its last child (if any), and abort these steps. (fragment case)
+        //
+        //         If last table has a parent node, then let adjusted insertion location be inside last table's parent node, immediately before last table, and abort these steps.
+        //
+        //         Let previous element be the element immediately above last table in the stack of open elements.
+        //
+        //         Let adjusted insertion location be inside previous element, after its last child (if any).
+        //      */
+        //
+        //     adjusted_insertion_location = target.id
+        // }
 
-            Run these substeps:
-
-                Let last template be the last template element in the stack of open elements, if any.
-
-                Let last table be the last table element in the stack of open elements, if any.
-
-                If there is a last template and either there is no last table, or there is one, but last template is lower (more recently added) than last table in the stack of open elements, then: let adjusted insertion location be inside last template's template contents, after its last child (if any), and abort these steps.
-
-                If there is no last table, then let adjusted insertion location be inside the first element in the stack of open elements (the html element), after its last child (if any), and abort these steps. (fragment case)
-
-                If last table has a parent node, then let adjusted insertion location be inside last table's parent node, immediately before last table, and abort these steps.
-
-                Let previous element be the element immediately above last table in the stack of open elements.
-
-                Let adjusted insertion location be inside previous element, after its last child (if any).
-             */
-
-            adjusted_insertion_location = target.id
-        }
-
-        if target.name == "template" {
-            // @todo!()
-            // be the content
+        let node = get_node_by_id!(self, adjusted_insertion_location);
+        if node.parent.is_some() {
+            let node = get_node_by_id!(self, node.parent.unwrap());
+            if node.name == "template" {
+                // Store in the document fragment
+                // be the content
+            }
         }
 
         adjusted_insertion_location
@@ -3416,7 +3434,7 @@ impl<'a> Html5Parser<'a> {
 
         if let Some(last_child_id) = node.children.last() {
             let last_child = self
-                .document
+                .get_document_mut()
                 .get_node_by_id_mut(*last_child_id)
                 .expect("node not found");
             if let NodeData::Text(TextData { value, .. }) = &mut last_child.data {
@@ -3431,7 +3449,7 @@ impl<'a> Html5Parser<'a> {
 
     fn display_debug_info(&self) {
         println!("-----------------------------------------\n");
-        self.document.print_nodes();
+        self.get_document().print_nodes();
         println!("-----------------------------------------\n");
         println!("current token   : {}", self.current_token);
         println!("insertion mode  : {:?}", self.insertion_mode);
@@ -3457,9 +3475,17 @@ impl<'a> Html5Parser<'a> {
         println!("]");
 
         println!("Output:");
-        println!("{}", self.document);
+        println!("{}", self.get_document());
 
         std::io::stdout().flush().ok();
+    }
+
+    fn get_document(&self) -> std::cell::Ref<'_, Document> {
+        self.document.borrow()
+    }
+
+    fn get_document_mut(&mut self) -> std::cell::RefMut<'_, Document> {
+        self.document.borrow_mut()
     }
 }
 
@@ -3472,7 +3498,7 @@ mod test {
     macro_rules! node_create {
         ($self:expr, $name:expr) => {{
             let node = Node::new_element($name, HashMap::new(), HTML_NAMESPACE);
-            let node_id = $self.document.add_node(node, NodeId::root());
+            let node_id = $self.get_document().add_node(node, NodeId::root());
             $self.open_elements.push(node_id);
         }};
     }

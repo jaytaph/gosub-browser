@@ -88,6 +88,10 @@ pub struct ElementData {
     pub(crate) attributes: ElementAttributes,
     /// CSS classes
     pub(crate) classes: ElementClass,
+    // Only used for <script> elements
+    pub(crate) force_async: bool,
+    // Template contents (when it's a template element)
+    pub(crate) template_contents: Option<DocumentFragment>
 }
 
 impl Default for ElementData {

@@ -4,6 +4,7 @@ use crate::html5_parser::node::data::element::ElementData;
 use crate::html5_parser::node::data::text::TextData;
 use derive_more::Display;
 use std::collections::HashMap;
+use crate::html5_parser::parser::document::DocumentFragment;
 
 pub const HTML_NAMESPACE: &str = "http://www.w3.org/1999/xhtml";
 pub const MATHML_NAMESPACE: &str = "http://www.w3.org/1998/Math/MathML";
@@ -25,7 +26,7 @@ pub enum NodeType {
 }
 
 /// Different type of node data
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum NodeData {
     Document(DocumentData),
     Text(TextData),
@@ -34,7 +35,7 @@ pub enum NodeData {
 }
 
 /// Id used to identify a node
-#[derive(Clone, Copy, Debug, Default, Eq, Hash, PartialEq, Display)]
+#[derive(Copy, Debug, Default, Eq, Hash, PartialEq, Display)]
 pub struct NodeId(pub(crate) usize);
 
 impl From<NodeId> for usize {

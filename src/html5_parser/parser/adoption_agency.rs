@@ -64,7 +64,7 @@ impl<'a> Html5Parser<'a> {
                 .node_id()
                 .expect("formatting element not found");
             let formatting_element_node = self
-                .document
+                .get_document()
                 .get_node_by_id(formatting_element_id)
                 .expect("formatting element not found")
                 .clone();
@@ -115,7 +115,7 @@ impl<'a> Html5Parser<'a> {
             let furthest_block_idx_oe = furthest_block_idx_oe.expect("furthest block not found");
             let furthest_block_id = self.open_elements_get(furthest_block_idx_oe).id;
             let furthest_block_node = self
-                .document
+                .get_document()
                 .get_node_by_id(furthest_block_id)
                 .expect("node not found")
                 .clone();
@@ -187,7 +187,7 @@ impl<'a> Html5Parser<'a> {
                 let replacement_node =
                     Node::new_element(node.name.as_str(), node_attributes, HTML_NAMESPACE);
                 let replacement_node_id =
-                    self.document.add_node(replacement_node, common_ancestor_id);
+                    self.get_document_mut().add_node(replacement_node, common_ancestor_id);
 
                 let afe_idx = self
                     .active_formatting_elements
@@ -210,14 +210,14 @@ impl<'a> Html5Parser<'a> {
                 }
 
                 // Step 4.13.8
-                self.document.relocate(last_node_id, node_id);
+                self.get_document_mut().relocate(last_node_id, node_id);
 
                 // Step 4.13.9
                 last_node_id = node_id;
             }
 
             // Step 4.14
-            self.document.relocate(last_node_id, common_ancestor_id);
+            self.get_document_mut().relocate(last_node_id, common_ancestor_id);
 
             // Step 4.15
             let new_element = match formatting_element_node.data {
@@ -230,11 +230,11 @@ impl<'a> Html5Parser<'a> {
             };
 
             // Step 4.17
-            let new_element_id = self.document.add_node(new_element, furthest_block_id);
+            let new_element_id = self.get_document_mut().add_node(new_element, furthest_block_id);
 
             // Step 4.16
             for child in furthest_block_node.children.iter() {
-                self.document.relocate(*child, new_element_id);
+                self.get_document_mut().relocate(*child, new_element_id);
             }
 
             // Step 4.18
@@ -298,7 +298,7 @@ impl<'a> Html5Parser<'a> {
                 ActiveElement::Node(node_id) => {
                     // Check if the given node is an element with the given subject
                     let node = self
-                        .document
+                        .get_document()
                         .get_node_by_id(node_id)
                         .expect("node not found")
                         .clone();
@@ -323,7 +323,7 @@ mod test {
     macro_rules! node_create {
         ($self:expr, $name:expr) => {{
             let node = Node::new_element($name, HashMap::new(), HTML_NAMESPACE);
-            let node_id = $self.document.add_node(node, NodeId::root());
+            let node_id = $self.get_document().add_node(node, NodeId::root());
             $self.open_elements.push(node_id);
         }};
     }

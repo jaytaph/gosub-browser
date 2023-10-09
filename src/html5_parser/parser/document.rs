@@ -1,11 +1,14 @@
 use crate::html5_parser::node::arena::NodeArena;
 use crate::html5_parser::node::data::{comment::CommentData, element::ElementData, text::TextData};
+use std::cell::RefCell;
 use crate::html5_parser::node::NodeTrait;
 use crate::html5_parser::node::NodeType;
 use crate::html5_parser::node::{Node, NodeData, NodeId};
 use crate::html5_parser::parser::quirks::QuirksMode;
 use crate::html5_parser::parser::HashMap;
 use std::fmt;
+use std::rc::Rc;
+use std::fmt::Debug;
 
 #[derive(PartialEq, Debug, Copy, Clone)]
 pub enum DocumentType {
@@ -13,6 +16,43 @@ pub enum DocumentType {
     IframeSrcDoc,
 }
 
+#[derive(PartialEq)]
+pub struct DocumentFragment {
+    // Node elements inside this fragment
+    arena: NodeArena,
+    // Document contents owner
+    doc: Rc<RefCell<Document>>,
+    // Host node
+    host: NodeId,
+}
+
+impl Clone for DocumentFragment {
+    fn clone(&self) -> Self {
+        Self {
+            arena: self.arena.clone(),
+            doc: self.doc.clone(),
+            host: self.host,
+        }
+    }
+}
+
+impl Debug for DocumentFragment {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "DocumentFragment")
+    }
+}
+
+impl DocumentFragment {
+    pub(crate) fn new(doc: Rc<RefCell<Document>>, host: NodeId) -> Self {
+        Self {
+            arena: NodeArena::new(),
+            doc,
+            host,
+        }
+    }
+}
+
+#[derive(PartialEq)]
 pub struct Document {
     arena: NodeArena,
     named_id_elements: HashMap<String, NodeId>, // HTML elements with ID (e.g., <div id="myid">)
