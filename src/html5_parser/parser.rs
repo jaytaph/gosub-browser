@@ -2818,7 +2818,19 @@ impl<'a> Html5Parser<'a> {
                 self.insertion_mode = InsertionMode::InHeadNoscript;
             }
             Token::StartTagToken { name, .. } if name == "script" => {
-                // @TODO: lots of work
+                let adjusted_insertion_location = self.adjusted_insert_location(None);
+                let node = self.create_node(&self.current_token, HTML_NAMESPACE);
+
+                // TODO Set the element's parser document to the Document, and set the element's force async to false.
+                // TODO If parser is created as part of HTML fragment parsing algorithm, set the element's "already started" flag to true
+                // TODO if the parser was invoked by document.write/writln, set script's element already started flag to true
+
+                self.open_elements.push(node.id.clone());
+                self.document.add_node(node, adjusted_insertion_location);
+
+                self.tokenizer.state = State::ScriptDataState;
+                self.original_insertion_mode = self.insertion_mode;
+                self.insertion_mode = InsertionMode::Text;
             }
             Token::EndTagToken { name, .. } if name == "head" => {
                 self.pop_check("head");
