@@ -65,11 +65,7 @@ impl<'a, 'doc> Html5Parser<'a, 'doc> {
             let formatting_element_id = self.active_formatting_elements[formatting_element_idx_afe]
                 .node_id()
                 .expect("formatting element not found");
-            let formatting_element_node = self
-                .document
-                .get_node_by_id(formatting_element_id)
-                .expect("formatting element not found")
-                .clone();
+            let formatting_element_node = self.get_node_by_id(formatting_element_id);
 
             // Step 4.4
             if !self.open_elements_has_id(formatting_element_id) {
@@ -299,12 +295,8 @@ impl<'a, 'doc> Html5Parser<'a, 'doc> {
                 }
                 ActiveElement::Node(node_id) => {
                     // Check if the given node is an element with the given subject
-                    let node = self
-                        .document
-                        .get_node_by_id(node_id)
-                        .expect("node not found")
-                        .clone();
-                    if let NodeData::Element(ElementData { name, .. }) = node.data {
+                    let node = self.get_node_by_id(node_id);
+                    if let NodeData::Element(ElementData { name, .. }) = &node.data {
                         if name == subject {
                             return Some(idx);
                         }
