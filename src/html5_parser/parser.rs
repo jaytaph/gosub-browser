@@ -2842,14 +2842,12 @@ impl<'a, 'doc> Html5Parser<'a, 'doc> {
             }
             Token::StartTagToken { name, .. } if name == "template" => {
                 let node_id = self.insert_html_element(&self.current_token.clone());
-                let node = get_node_by_id_mut!(self, node_id);
 
-                if let NodeData::Element {
-                    ref mut template_contents,
-                    ..
-                } = node.data
                 {
-                    *template_contents = Some(DocumentFragment::new(&self.document, current_node!(self).id.clone()));
+                    let node = self.document.get_node_by_id_mut(node_id).expect("node not found");
+                    if let NodeData::Element(data) = &mut node.data {
+                        data.template_contents = Some(DocumentFragment::new(&self.document, self.current_node().id.clone()));
+                    }
                 }
 
                 self.active_formatting_elements_push_marker();
@@ -3417,9 +3415,9 @@ impl<'a, 'doc> Html5Parser<'a, 'doc> {
         //     adjusted_insertion_location = target.id
         // }
 
-        let node = get_node_by_id!(self, adjusted_insertion_location);
+        let node = self.document.get_node_by_id(adjusted_insertion_location).expect("node not found");
         if node.parent.is_some() {
-            let node = get_node_by_id!(self, node.parent.unwrap());
+            let node = self.document.get_node_by_id(node.parent.unwrap()).expect("node not found");
             if node.name == "template" {
                 // Store in the document fragment
                 // be the content

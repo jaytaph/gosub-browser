@@ -4,7 +4,6 @@ use crate::html5_parser::node::data::element::ElementData;
 use crate::html5_parser::node::data::text::TextData;
 use derive_more::Display;
 use std::collections::HashMap;
-use crate::html5_parser::parser::document::DocumentFragment;
 
 pub const HTML_NAMESPACE: &str = "http://www.w3.org/1999/xhtml";
 pub const MATHML_NAMESPACE: &str = "http://www.w3.org/1998/Math/MathML";
@@ -31,7 +30,7 @@ pub enum NodeData<'doc> {
     Document(DocumentData),
     Text(TextData),
     Comment(CommentData),
-    Element(ElementData),
+    Element(ElementData<'doc>),
 }
 
 /// Id used to identify a node
@@ -102,19 +101,9 @@ pub struct Node<'doc> {
     pub data: NodeData<'doc>,
 }
 
-impl Node {
+impl Node<'_> {
     /// This will only compare against the tag, namespace and attributes. Both nodes could still have
     /// other parents and children.
-=======
-    pub data: NodeData<'doc>,
-    /// CSS classes (only relevant for NodeType::Element, otherwise None)
-    pub classes: Option<ElementClass>,
-}
-
-impl Node<'_> {
-    // This will only compare against the tag, namespace and attributes. Both nodes could still have
-    // other parents and children.
->>>>>>> 409febb (Trying lifetimes)
     pub fn matches_tag_and_attrs(&self, other: &Self) -> bool {
         self.name == other.name && self.namespace == other.namespace && self.data == other.data
     }

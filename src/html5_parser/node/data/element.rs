@@ -1,6 +1,7 @@
 use crate::html5_parser::element_class::ElementClass;
 use std::collections::hash_map::Iter;
 use std::collections::HashMap;
+use crate::html5_parser::parser::document::DocumentFragment;
 
 #[derive(Debug, PartialEq, Clone)]
 /// Data structure for storing element attributes (ie: class="foo")
@@ -81,7 +82,7 @@ impl ElementAttributes {
 
 #[derive(Debug, PartialEq, Clone)]
 /// Data structure for element nodes
-pub struct ElementData {
+pub struct ElementData<'doc> {
     /// Name of the element (e.g., div)
     pub(crate) name: String,
     /// Element's attributes stored as key-value pairs
@@ -91,21 +92,23 @@ pub struct ElementData {
     // Only used for <script> elements
     pub(crate) force_async: bool,
     // Template contents (when it's a template element)
-    pub(crate) template_contents: Option<DocumentFragment>
+    pub(crate) template_contents: Option<DocumentFragment<'doc>>
 }
 
-impl Default for ElementData {
+impl Default for ElementData<'_> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl ElementData {
+impl ElementData<'_> {
     pub(crate) fn new() -> Self {
         Self {
             name: "".to_string(),
             attributes: ElementAttributes::new(),
             classes: ElementClass::new(),
+            force_async: false,
+            template_contents: None
         }
     }
 
@@ -117,6 +120,8 @@ impl ElementData {
             name: name.into(),
             attributes: ElementAttributes::with_attributes(attributes),
             classes: ElementClass::new(),
+            force_async: false,
+            template_contents: None
         }
     }
 

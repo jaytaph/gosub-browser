@@ -98,7 +98,7 @@ impl<'doc> NodeArena<'doc> {
     }
 }
 
-impl Default for NodeArena {
+impl Default for NodeArena<'_> {
     fn default() -> Self {
         Self::new()
     }
