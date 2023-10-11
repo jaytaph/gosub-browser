@@ -1,14 +1,12 @@
 use crate::html5_parser::node::arena::NodeArena;
 use crate::html5_parser::node::data::{comment::CommentData, element::ElementData, text::TextData};
-use std::cell::RefCell;
+use core::fmt;
+use core::fmt::Debug;
 use crate::html5_parser::node::NodeTrait;
 use crate::html5_parser::node::NodeType;
 use crate::html5_parser::node::{Node, NodeData, NodeId};
 use crate::html5_parser::parser::quirks::QuirksMode;
-use crate::html5_parser::parser::HashMap;
-use std::fmt;
-use std::rc::Rc;
-use std::fmt::Debug;
+use std::collections::HashMap;
 
 #[derive(PartialEq, Debug, Copy, Clone)]
 pub enum DocumentType {
@@ -17,33 +15,33 @@ pub enum DocumentType {
 }
 
 #[derive(PartialEq)]
-pub struct DocumentFragment {
+pub struct DocumentFragment<'doc> {
     // Node elements inside this fragment
-    arena: NodeArena,
+    arena: NodeArena<'doc>,
     // Document contents owner
-    doc: Rc<RefCell<Document>>,
+    doc: &'doc Document<'doc>,
     // Host node
     host: NodeId,
 }
 
-impl Clone for DocumentFragment {
+impl Clone for DocumentFragment<'_> {
     fn clone(&self) -> Self {
         Self {
             arena: self.arena.clone(),
-            doc: self.doc.clone(),
+            doc: self.doc,
             host: self.host,
         }
     }
 }
 
-impl Debug for DocumentFragment {
+impl Debug for DocumentFragment<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "DocumentFragment")
     }
 }
 
-impl DocumentFragment {
-    pub(crate) fn new(doc: Rc<RefCell<Document>>, host: NodeId) -> Self {
+impl<'doc> DocumentFragment<'doc> {
+    pub(crate) fn new(doc: &'doc Document<'doc>, host: NodeId) -> Self {
         Self {
             arena: NodeArena::new(),
             doc,
@@ -53,20 +51,20 @@ impl DocumentFragment {
 }
 
 #[derive(PartialEq)]
-pub struct Document {
-    arena: NodeArena,
+pub struct Document<'doc> {
+    arena: NodeArena<'doc>,
     named_id_elements: HashMap<String, NodeId>, // HTML elements with ID (e.g., <div id="myid">)
     pub doctype: DocumentType,                  // Document type
     pub quirks_mode: QuirksMode,                // Quirks mode
 }
 
-impl Document {
+impl Document<'_> {
     pub(crate) fn print_nodes(&self) {
         self.arena.print_nodes();
     }
 }
 
-impl Default for Document {
+impl Default for Document<'_> {
     fn default() -> Self {
         Self {
             arena: NodeArena::new(),
@@ -77,8 +75,8 @@ impl Default for Document {
     }
 }
 
-impl Document {
-    /// Creates a new document
+impl<'doc> Document<'doc> {
+    // Creates a new document
     pub fn new() -> Self {
         let mut arena = NodeArena::new();
         arena.add_node(Node::new_document());
@@ -96,7 +94,7 @@ impl Document {
     }
 
     /// Fetches a mutable node by id or returns None when no node with this ID is found
-    pub fn get_node_by_id_mut(&mut self, node_id: NodeId) -> Option<&mut Node> {
+    pub fn get_node_by_id_mut(&mut self, node_id: NodeId) -> Option<&mut Node<'doc>> {
         self.arena.get_node_mut(node_id)
     }
 
@@ -107,7 +105,7 @@ impl Document {
     }
 
     /// Fetches a mutable node by named id (string) or returns None when no node with this ID is found
-    pub fn get_node_by_named_id_mut(&mut self, named_id: &str) -> Option<&mut Node> {
+    pub fn get_node_by_named_id_mut(&mut self, named_id: &str) -> Option<&mut Node<'doc>> {
         let node_id = self.named_id_elements.get(named_id)?;
         self.arena.get_node_mut(*node_id)
     }
@@ -161,8 +159,8 @@ impl Document {
         }
     }
 
-    /// Add to the document
-    pub fn add_node(&mut self, node: Node, parent_id: NodeId) -> NodeId {
+    // Add to the document
+    pub fn add_node(&mut self, node: Node<'doc>, parent_id: NodeId) -> NodeId {
         let mut node_named_id: Option<String> = None;
         if let NodeData::Element(element) = &node.data {
             if let Some(named_id) = element.attributes.get("id") {
@@ -213,7 +211,7 @@ impl Document {
     }
 }
 
-impl Document {
+impl Document<'_> {
     /// Print a node and all its children in a tree-like structure
     pub fn print_tree(&self, node: &Node, prefix: String, last: bool, f: &mut fmt::Formatter<'_>) {
         let mut buffer = prefix.clone();
@@ -264,7 +262,7 @@ impl Document {
     }
 }
 
-impl fmt::Display for Document {
+impl fmt::Display for Document<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.print_tree(self.get_root(), "".to_string(), true, f);
         Ok(())
@@ -280,47 +278,47 @@ mod tests {
     #[ignore]
     #[test]
     fn test_document() {
-        let mut document = super::Document::new();
+        let mut document = Document::new();
         let root_id = document.get_root().id;
         let html_id = document.add_node(
-            super::Node::new_element("html", HashMap::new(), HTML_NAMESPACE),
+            Node::new_element("html", HashMap::new(), HTML_NAMESPACE),
             root_id,
         );
         let head_id = document.add_node(
-            super::Node::new_element("head", HashMap::new(), HTML_NAMESPACE),
+            Node::new_element("head", HashMap::new(), HTML_NAMESPACE),
             html_id,
         );
         let body_id = document.add_node(
-            super::Node::new_element("body", HashMap::new(), HTML_NAMESPACE),
+            Node::new_element("body", HashMap::new(), HTML_NAMESPACE),
             html_id,
         );
         let title_id = document.add_node(
-            super::Node::new_element("title", HashMap::new(), HTML_NAMESPACE),
+            Node::new_element("title", HashMap::new(), HTML_NAMESPACE),
             head_id,
         );
-        let title_text_id = document.add_node(super::Node::new_text("Hello world"), title_id);
+        let title_text_id = document.add_node(Node::new_text("Hello world"), title_id);
         let p_id = document.add_node(
-            super::Node::new_element("p", HashMap::new(), HTML_NAMESPACE),
+            Node::new_element("p", HashMap::new(), HTML_NAMESPACE),
             body_id,
         );
-        let p_text_id = document.add_node(super::Node::new_text("This is a paragraph"), p_id);
-        let p_comment_id = document.add_node(super::Node::new_comment("This is a comment"), p_id);
+        let p_text_id = document.add_node(Node::new_text("This is a paragraph"), p_id);
+        let p_comment_id = document.add_node(Node::new_comment("This is a comment"), p_id);
         let p_text2_id =
-            document.add_node(super::Node::new_text("This is another paragraph"), p_id);
+            document.add_node(Node::new_text("This is another paragraph"), p_id);
         let p_text3_id =
-            document.add_node(super::Node::new_text("This is a third paragraph"), p_id);
+            document.add_node(Node::new_text("This is a third paragraph"), p_id);
         let p_text4_id =
-            document.add_node(super::Node::new_text("This is a fourth paragraph"), p_id);
+            document.add_node(Node::new_text("This is a fourth paragraph"), p_id);
         let p_text5_id =
-            document.add_node(super::Node::new_text("This is a fifth paragraph"), p_id);
+            document.add_node(Node::new_text("This is a fifth paragraph"), p_id);
         let p_text6_id =
-            document.add_node(super::Node::new_text("This is a sixth paragraph"), p_id);
+            document.add_node(Node::new_text("This is a sixth paragraph"), p_id);
         let p_text7_id =
-            document.add_node(super::Node::new_text("This is a seventh paragraph"), p_id);
+            document.add_node(Node::new_text("This is a seventh paragraph"), p_id);
         let p_text8_id =
-            document.add_node(super::Node::new_text("This is a eighth paragraph"), p_id);
+            document.add_node(Node::new_text("This is a eighth paragraph"), p_id);
         let p_text9_id =
-            document.add_node(super::Node::new_text("This is a ninth paragraph"), p_id);
+            document.add_node(Node::new_text("This is a ninth paragraph"), p_id);
 
         document.append(p_text9_id, p_id);
         document.append(p_text8_id, p_id);

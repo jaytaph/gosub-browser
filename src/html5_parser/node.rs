@@ -27,7 +27,7 @@ pub enum NodeType {
 
 /// Different type of node data
 #[derive(Debug, Clone, PartialEq)]
-pub enum NodeData {
+pub enum NodeData<'doc> {
     Document(DocumentData),
     Text(TextData),
     Comment(CommentData),
@@ -85,7 +85,7 @@ impl NodeId {
 
 /// Node that resembles a DOM node
 #[derive(Debug, PartialEq)]
-pub struct Node {
+pub struct Node<'doc> {
     /// ID of the node, 0 is always the root / document node
     pub id: NodeId,
     /// Named ID of the node, from the "id" attribute on an HTML element
@@ -99,18 +99,28 @@ pub struct Node {
     /// namespace of the node
     pub namespace: Option<String>,
     /// actual data of the node
-    pub data: NodeData,
+    pub data: NodeData<'doc>,
 }
 
 impl Node {
     /// This will only compare against the tag, namespace and attributes. Both nodes could still have
     /// other parents and children.
+=======
+    pub data: NodeData<'doc>,
+    /// CSS classes (only relevant for NodeType::Element, otherwise None)
+    pub classes: Option<ElementClass>,
+}
+
+impl Node<'_> {
+    // This will only compare against the tag, namespace and attributes. Both nodes could still have
+    // other parents and children.
+>>>>>>> 409febb (Trying lifetimes)
     pub fn matches_tag_and_attrs(&self, other: &Self) -> bool {
         self.name == other.name && self.namespace == other.namespace && self.data == other.data
     }
 }
 
-impl Clone for Node {
+impl Clone for Node<'_> {
     fn clone(&self) -> Self {
         Node {
             id: self.id,
@@ -124,7 +134,7 @@ impl Clone for Node {
     }
 }
 
-impl Node {
+impl Node<'_> {
     /// Create a new document node
     pub fn new_document() -> Self {
         Node {
@@ -243,8 +253,8 @@ pub trait NodeTrait {
     fn type_of(&self) -> NodeType;
 }
 
-/// Each node implements the NodeTrait and has a type_of that will return the node type.
-impl NodeTrait for Node {
+// Each node implements the NodeTrait and has a type_of that will return the node type.
+impl NodeTrait for Node<'_> {
     fn type_of(&self) -> NodeType {
         match self.data {
             NodeData::Document { .. } => NodeType::Document,

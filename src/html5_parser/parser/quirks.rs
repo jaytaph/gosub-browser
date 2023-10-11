@@ -7,8 +7,8 @@ pub enum QuirksMode {
     NoQuirks,
 }
 
-impl<'a> Html5Parser<'a> {
-    /// returns the correct quirk mode for the given doctype
+impl<'a, 'doc> Html5Parser<'a, 'doc> {
+    // returns the correct quirk mode for the given doctype
     pub(crate) fn identify_quirks_mode(
         &self,
         name: &Option<String>,

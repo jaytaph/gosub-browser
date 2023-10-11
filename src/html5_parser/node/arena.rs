@@ -5,9 +5,9 @@ use super::NodeId;
 
 /// The node arena is the single source for nodes in a document (or fragment).
 #[derive(Debug, Clone, PartialEq)]
-pub struct NodeArena {
+pub struct NodeArena<'doc> {
     /// Current nodes stored as <id, node>
-    nodes: HashMap<NodeId, Node>,
+    nodes: HashMap<NodeId, Node<'doc>>,
     /// Order of nodes
     order: Vec<NodeId>,
     /// Next node ID to use
@@ -20,7 +20,7 @@ impl Clone for NodeId {
     }
 }
 
-impl NodeArena {
+impl<'doc> NodeArena<'doc> {
     /// Prints the list of nodes in sequential order. This makes debugging a bit easier, but should
     /// be removed.
     pub(crate) fn print_nodes(&self) {
@@ -30,7 +30,7 @@ impl NodeArena {
     }
 }
 
-impl NodeArena {
+impl<'doc> NodeArena<'doc> {
     /// Create a new NodeArena
     pub fn new() -> Self {
         Self {
@@ -46,12 +46,12 @@ impl NodeArena {
     }
 
     /// Get the node with the given id as a mutable reference
-    pub fn get_node_mut(&mut self, node_id: NodeId) -> Option<&mut Node> {
+    pub fn get_node_mut(&mut self, node_id: NodeId) -> Option<&mut Node<'doc>> {
         self.nodes.get_mut(&node_id)
     }
 
     /// Add the node to the arena and return its id
-    pub fn add_node(&mut self, mut node: Node) -> NodeId {
+    pub fn add_node(&mut self, mut node: Node<'doc>) -> NodeId {
         let id = self.next_id;
         self.next_id = id.next();
 
