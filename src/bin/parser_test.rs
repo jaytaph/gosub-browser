@@ -176,7 +176,7 @@ fn run_tree_test(test_idx: usize, test: &Test, results: &mut TestResults) {
 
     // Check the document tree, which counts as a single assertion
     results.assertions += 1;
-    if match_document_tree(document, &test.document) {
+    if match_document_tree(&document, &test.document) {
         results.succeeded += 1;
     } else {
         results.failed += 1;
@@ -302,7 +302,7 @@ fn match_node(
     let node = document.get_node_by_id(node_idx).unwrap();
 
     if node_idx.is_positive() {
-        match &node.data {
+        match &*node.data() {
             NodeData::Element(element) => {
                 let value = format!(
                     "|{}<{}>",
@@ -343,7 +343,7 @@ fn match_node(
 
     let mut next_expected_idx = expected_id + 1;
 
-    for &child_idx in &node.children {
+    for &child_idx in &*node.children() {
         if let Some(new_idx) =
             match_node(child_idx, next_expected_idx, indent + 1, document, expected)
         {

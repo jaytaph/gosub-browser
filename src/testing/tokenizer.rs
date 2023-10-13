@@ -65,7 +65,7 @@ impl TokenizerBuilder {
                 initial_state: self.state,
                 last_start_tag: self.last_start_tag.to_owned().unwrap_or(String::from("")),
             }),
-            error_logger.clone(),
+            Rc::clone(&error_logger),
         )
     }
 }
@@ -127,8 +127,11 @@ impl Test {
                 self.assert_token(t, expected_token);
             }
 
-            let borrowed_error_logger = tokenizer.error_logger.borrow();
-            assert_eq!(borrowed_error_logger.get_errors().len(), self.errors.len());
+            let borrowed_error_logger = &tokenizer.error_logger;
+            assert_eq!(
+                borrowed_error_logger.borrow_mut().get_errors().len(),
+                self.errors.len()
+            );
 
             // Check error messages
             for error in &self.errors {
@@ -151,7 +154,7 @@ impl Test {
 
     fn assert_error(&self, tokenizer: &Tokenizer, expected: &Error) {
         // Iterate all generated errors to see if we have an exact match
-        for actual in tokenizer.get_error_logger().get_errors() {
+        for actual in tokenizer.get_error_logger().borrow_mut().get_errors() {
             if actual.message == expected.code
                 && actual.line as i64 == expected.line
                 && actual.col as i64 == expected.col
@@ -162,7 +165,7 @@ impl Test {
 
         // Try and find an error that matches the code, but has a different line/pos. Even though
         // it's not always correct, it might be a off-by-one position.
-        for actual in tokenizer.get_error_logger().get_errors() {
+        for actual in tokenizer.get_error_logger().borrow_mut().get_errors() {
             if actual.message == expected.code
                 && (actual.line as i64 != expected.line || actual.col as i64 != expected.col)
             {

@@ -11,7 +11,7 @@ use crate::html5_parser::input_stream::{InputStream, Position};
 use crate::html5_parser::tokenizer::state::State;
 use crate::html5_parser::tokenizer::token::Token;
 use crate::types::{Error, Result};
-use std::cell::{Ref, RefCell};
+use std::cell::{RefCell};
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -254,8 +254,8 @@ impl<'a> Tokenizer<'a> {
     }
 
     /// Returns the error logger
-    pub fn get_error_logger(&self) -> Ref<ErrorLogger> {
-        self.error_logger.borrow()
+    pub fn get_error_logger(&self) -> Rc<RefCell<ErrorLogger>> {
+        Rc::clone(&self.error_logger)
     }
 
     /// Consumes the input stream. Continues until the stream is completed or a token has been generated.

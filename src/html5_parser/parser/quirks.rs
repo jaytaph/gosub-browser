@@ -1,13 +1,13 @@
 use crate::html5_parser::parser::Html5Parser;
 
-#[derive(PartialEq, Debug)]
+#[derive(Copy, Clone, PartialEq, Debug)]
 pub enum QuirksMode {
     Quirks,
     LimitedQuirks,
     NoQuirks,
 }
 
-impl<'a, 'doc> Html5Parser<'a, 'doc> {
+impl<'a, 'doc> Html5Parser<'a> {
     // returns the correct quirk mode for the given doctype
     pub(crate) fn identify_quirks_mode(
         &self,

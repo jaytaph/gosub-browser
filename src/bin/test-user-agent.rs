@@ -2,7 +2,10 @@ use gosub_engine::{
     html5_parser::{
         input_stream::{Confidence, Encoding, InputStream},
         node::{Node, NodeData},
-        parser::{document::Document, Html5Parser},
+        parser::{
+            document::{Document},
+            Html5Parser,
+        },
     },
     types::Result,
 };
@@ -37,11 +40,11 @@ fn main() -> Result<()> {
     let mut parser = Html5Parser::new(&mut stream);
     let (document, parse_error) = parser.parse()?;
 
-    match get_node_by_path(document, vec!["html", "body"]) {
+    match get_node_by_path(&document, vec!["html", "body"]) {
         None => {
             println!("[No Body Found]");
         }
-        Some(node) => display_node(document, node),
+        Some(node) => display_node(&document, &node),
     }
 
     for e in parse_error {
@@ -51,12 +54,12 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn get_node<'a>(document: &'a Document, parent: &'a Node, name: &'a str) -> Option<&'a Node> {
-    for id in &parent.children {
+fn get_node<'a>(document: &Document, parent: &'a Node, name: &'a str) -> Option<Node> {
+    for id in &*parent.children() {
         match document.get_node_by_id(*id) {
             None => {}
             Some(node) => {
-                if node.name.eq(name) {
+                if &*node.name() == name {
                     return Some(node);
                 }
             }
@@ -65,9 +68,10 @@ fn get_node<'a>(document: &'a Document, parent: &'a Node, name: &'a str) -> Opti
     None
 }
 
-fn get_node_by_path<'a>(document: &'a Document, path: Vec<&'a str>) -> Option<&'a Node> {
+fn get_node_by_path(document: &Document, path: Vec<&str>) -> Option<Node> {
     let mut node = document.get_root();
-    match document.get_node_by_id(node.children[0]) {
+    let child_id = node.children()[0];
+    match document.get_node_by_id(child_id) {
         None => {
             return None;
         }
@@ -76,7 +80,7 @@ fn get_node_by_path<'a>(document: &'a Document, path: Vec<&'a str>) -> Option<&'
         }
     }
     for name in path {
-        match get_node(document, node, name) {
+        match get_node(document, &node, name) {
             Some(new_node) => {
                 node = new_node;
             }
@@ -89,14 +93,14 @@ fn get_node_by_path<'a>(document: &'a Document, path: Vec<&'a str>) -> Option<&'
 }
 
 fn display_node(document: &Document, node: &Node) {
-    if let NodeData::Text(text) = &node.data {
+    if let NodeData::Text(text) = &*node.data() {
         if !text.value().eq("\n") {
             println!("{}", text.value());
         }
     }
-    for child_id in &node.children {
+    for child_id in &*node.children() {
         if let Some(child) = document.get_node_by_id(*child_id) {
-            display_node(document, child);
+            display_node(document, &child);
         }
     }
 }

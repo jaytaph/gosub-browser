@@ -1,11 +1,11 @@
+extern crate lazy_static;
+
 use crate::html5_parser::error_logger::ParserError;
 use crate::html5_parser::input_stream::Element;
-use crate::read_char;
-
-extern crate lazy_static;
 use crate::html5_parser::input_stream::SeekMode::SeekCur;
 use crate::html5_parser::tokenizer::replacement_tables::{TOKEN_NAMED_CHARS, TOKEN_REPLACEMENTS};
 use crate::html5_parser::tokenizer::{Tokenizer, CHAR_REPLACEMENT};
+use crate::read_char;
 use lazy_static::lazy_static;
 
 /// Different states for the character references
@@ -365,7 +365,7 @@ mod tests {
                     is.read_from_str(input, None);
 
                     let error_logger = Rc::new(RefCell::new(ErrorLogger::new()));
-                    let mut tokenizer = Tokenizer::new(&mut is, None, error_logger.clone());
+                    let mut tokenizer = Tokenizer::new(&mut is, None, Rc::clone(&error_logger));
 
                     let token = tokenizer.next_token().unwrap();
                     assert_eq!(expected, token.to_string());

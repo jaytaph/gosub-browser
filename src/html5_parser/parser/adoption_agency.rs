@@ -12,7 +12,7 @@ pub enum AdoptionResult {
     Completed,
 }
 
-impl<'a, 'doc> Html5Parser<'a, 'doc> {
+impl<'a> Html5Parser<'a> {
     /**
      * When we talk about nodes, there are 3 contexts to consider:
      *
@@ -30,8 +30,8 @@ impl<'a, 'doc> Html5Parser<'a, 'doc> {
         };
 
         // Step 2
-        let current_node_id = self.current_node().id;
-        if self.current_node().name == *subject
+        let current_node_id = self.current_node().id();
+        if &*self.current_node().name() == subject
             && !self
                 .active_formatting_elements
                 .iter()
@@ -77,7 +77,7 @@ impl<'a, 'doc> Html5Parser<'a, 'doc> {
             }
 
             // Step 4.5
-            if !self.is_in_scope(&formatting_element_node.name, Scope::Regular) {
+            if !self.is_in_scope(&formatting_element_node.name(), Scope::Regular) {
                 self.parse_error("formatting element not in scope");
                 return AdoptionResult::Completed;
             }
@@ -111,7 +111,7 @@ impl<'a, 'doc> Html5Parser<'a, 'doc> {
             }
 
             let furthest_block_idx_oe = furthest_block_idx_oe.expect("furthest block not found");
-            let furthest_block_id = self.open_elements_get(furthest_block_idx_oe).id;
+            let furthest_block_id = self.open_elements_get(furthest_block_idx_oe).id();
             let furthest_block_node = self
                 .document
                 .get_node_by_id(furthest_block_id)
@@ -129,7 +129,7 @@ impl<'a, 'doc> Html5Parser<'a, 'doc> {
             // Step 4.11
             let mut node_idx_oe = furthest_block_idx_oe;
             let last_node_idx_oe = furthest_block_idx_oe;
-            let mut last_node_id = self.open_elements_get(last_node_idx_oe).id;
+            let mut last_node_id = self.open_elements_get(last_node_idx_oe).id();
 
             // Step 4.12
             let mut inner_loop_counter = 0;
@@ -141,7 +141,7 @@ impl<'a, 'doc> Html5Parser<'a, 'doc> {
 
                 // Step 4.13.2
                 node_idx_oe -= 1;
-                let node_id = self.open_elements_get(node_idx_oe).id;
+                let node_id = self.open_elements_get(node_idx_oe).id();
                 let node = self.get_node_by_id(node_id).clone();
 
                 // Step 4.13.3
@@ -175,7 +175,7 @@ impl<'a, 'doc> Html5Parser<'a, 'doc> {
 
                 // Step 4.13.6
                 // replace the old node with the new replacement node
-                let node_attributes = match node.data {
+                let node_attributes = match &*node.data() {
                     NodeData::Element(ElementData { attributes, .. }) => {
                         attributes.attributes.clone()
                     }
@@ -183,7 +183,7 @@ impl<'a, 'doc> Html5Parser<'a, 'doc> {
                 };
 
                 let replacement_node =
-                    Node::new_element(node.name.as_str(), node_attributes, HTML_NAMESPACE);
+                    Node::new_element(&node.name(), node_attributes, HTML_NAMESPACE);
                 let replacement_node_id =
                     self.document.add_node(replacement_node, common_ancestor_id);
 
@@ -218,7 +218,7 @@ impl<'a, 'doc> Html5Parser<'a, 'doc> {
             self.document.relocate(last_node_id, common_ancestor_id);
 
             // Step 4.15
-            let new_element = match formatting_element_node.data {
+            let new_element = match &*formatting_element_node.data() {
                 NodeData::Element(ElementData {
                     name, attributes, ..
                 }) => {
@@ -231,7 +231,7 @@ impl<'a, 'doc> Html5Parser<'a, 'doc> {
             let new_element_id = self.document.add_node(new_element, furthest_block_id);
 
             // Step 4.16
-            for child in furthest_block_node.children.iter() {
+            for child in furthest_block_node.children().iter() {
                 self.document.relocate(*child, new_element_id);
             }
 
@@ -296,7 +296,8 @@ impl<'a, 'doc> Html5Parser<'a, 'doc> {
                 ActiveElement::Node(node_id) => {
                     // Check if the given node is an element with the given subject
                     let node = self.get_node_by_id(node_id);
-                    if let NodeData::Element(ElementData { name, .. }) = &node.data {
+                    let data = &*node.data();
+                    if let NodeData::Element(ElementData { name, .. }) = data {
                         if name == subject {
                             return Some(idx);
                         }

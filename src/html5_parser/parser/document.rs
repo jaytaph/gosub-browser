@@ -1,12 +1,15 @@
 use crate::html5_parser::node::arena::NodeArena;
 use crate::html5_parser::node::data::{comment::CommentData, element::ElementData, text::TextData};
-use core::fmt;
-use core::fmt::Debug;
 use crate::html5_parser::node::NodeTrait;
 use crate::html5_parser::node::NodeType;
 use crate::html5_parser::node::{Node, NodeData, NodeId};
 use crate::html5_parser::parser::quirks::QuirksMode;
+use core::fmt;
+use core::fmt::Debug;
+use std::cell::RefCell;
 use std::collections::HashMap;
+use std::fmt::Display;
+use std::rc::Rc;
 
 #[derive(PartialEq, Debug, Copy, Clone)]
 pub enum DocumentType {
@@ -14,57 +17,123 @@ pub enum DocumentType {
     IframeSrcDoc,
 }
 
+#[derive(Debug, PartialEq)]
+pub struct Document(Rc<RefCell<Inner>>);
+
+impl Clone for Document {
+    fn clone(&self) -> Self {
+        Self(Rc::clone(&self.0))
+    }
+}
+
+impl Document {
+    pub fn new() -> Self {
+        Self(Rc::new(RefCell::new(Inner::new())))
+    }
+
+    pub fn add_node(&mut self, node: Node, parent_id: NodeId) -> NodeId {
+        self.0.borrow_mut().add_node(node, parent_id)
+    }
+
+    pub fn doctype(&self) -> DocumentType {
+        self.0.borrow().doctype
+    }
+
+    pub fn quirks_mode(&self) -> QuirksMode {
+        self.0.borrow().quirks_mode
+    }
+
+    pub fn set_quirks_mode(&mut self, mode: QuirksMode) {
+        self.0.borrow_mut().quirks_mode = mode
+    }
+
+    pub fn get_node_by_id(&self, node_id: NodeId) -> Option<Node> {
+        self.0.borrow().get_node_by_id(node_id)
+    }
+
+    pub fn with_node_by_id<T>(
+        &mut self,
+        node_id: NodeId,
+        f: impl FnOnce(&mut Node) -> T,
+    ) -> Option<T> {
+        self.0.borrow_mut().with_node_by_id(node_id, f)
+    }
+
+    pub fn get_node_by_named_id(&self, named_id: &str) -> Option<Node> {
+        self.0.borrow().get_node_by_named_id(named_id)
+    }
+
+    pub fn print_nodes(&self) {
+        self.0.borrow().print_nodes()
+    }
+
+    pub fn set_node_named_id(&mut self, node_id: NodeId, named_id: &str) {
+        self.0.borrow_mut().set_node_named_id(node_id, named_id)
+    }
+
+    pub fn get_root(&self) -> Node {
+        self.0.borrow().get_root()
+    }
+
+    pub fn append(&mut self, node_id: NodeId, parent_id: NodeId) {
+        self.0.borrow_mut().append(node_id, parent_id)
+    }
+
+    pub fn relocate(&mut self, node_id: NodeId, parent_id: NodeId) {
+        self.0.borrow_mut().relocate(node_id, parent_id)
+    }
+}
+
+impl Display for Document {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
 #[derive(PartialEq)]
-pub struct DocumentFragment<'doc> {
-    // Node elements inside this fragment
-    arena: NodeArena<'doc>,
+pub struct DocumentFragment {
     // Document contents owner
-    doc: &'doc Document<'doc>,
+    doc: Document,
     // Host node
     host: NodeId,
 }
 
-impl Clone for DocumentFragment<'_> {
+impl Clone for DocumentFragment {
     fn clone(&self) -> Self {
         Self {
-            arena: self.arena.clone(),
-            doc: self.doc,
+            doc: self.doc.clone(),
             host: self.host,
         }
     }
 }
 
-impl Debug for DocumentFragment<'_> {
+impl Debug for DocumentFragment {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "DocumentFragment")
     }
 }
 
-impl<'doc> DocumentFragment<'doc> {
-    pub(crate) fn new(doc: &'doc Document<'doc>, host: NodeId) -> Self {
-        Self {
-            arena: NodeArena::new(),
-            doc,
-            host,
-        }
+impl DocumentFragment {
+    pub fn new(doc: Document, host: NodeId) -> Self {
+        Self { doc, host }
     }
 }
 
-#[derive(PartialEq)]
-pub struct Document<'doc> {
-    arena: NodeArena<'doc>,
+#[derive(PartialEq, Debug)]
+pub struct Inner {
+    arena: NodeArena,
     named_id_elements: HashMap<String, NodeId>, // HTML elements with ID (e.g., <div id="myid">)
     pub doctype: DocumentType,                  // Document type
     pub quirks_mode: QuirksMode,                // Quirks mode
 }
 
-impl Document<'_> {
-    pub(crate) fn print_nodes(&self) {
+impl Inner {
+    pub fn print_nodes(&self) {
         self.arena.print_nodes();
     }
 }
 
-impl Default for Document<'_> {
+impl Default for Inner {
     fn default() -> Self {
         Self {
             arena: NodeArena::new(),
@@ -75,7 +144,7 @@ impl Default for Document<'_> {
     }
 }
 
-impl<'doc> Document<'doc> {
+impl Inner {
     // Creates a new document
     pub fn new() -> Self {
         let mut arena = NodeArena::new();
@@ -89,25 +158,29 @@ impl<'doc> Document<'doc> {
     }
 
     /// Fetches a node by id or returns None when no node with this ID is found
-    pub fn get_node_by_id(&self, node_id: NodeId) -> Option<&Node> {
+    pub fn get_node_by_id(&self, node_id: NodeId) -> Option<Node> {
         self.arena.get_node(node_id)
     }
 
-    /// Fetches a mutable node by id or returns None when no node with this ID is found
-    pub fn get_node_by_id_mut(&mut self, node_id: NodeId) -> Option<&mut Node<'doc>> {
-        self.arena.get_node_mut(node_id)
+    pub fn with_node_by_id<T>(
+        &mut self,
+        node_id: NodeId,
+        f: impl FnOnce(&mut Node) -> T,
+    ) -> Option<T> {
+        self.arena.with_node_by_id(node_id, f)
     }
 
     /// Fetches a node by named id (string) or returns None when no node with this ID is found
-    pub fn get_node_by_named_id(&self, named_id: &str) -> Option<&Node> {
+    pub fn get_node_by_named_id(&self, named_id: &str) -> Option<Node> {
         let node_id = self.named_id_elements.get(named_id)?;
         self.arena.get_node(*node_id)
     }
 
     /// Fetches a mutable node by named id (string) or returns None when no node with this ID is found
-    pub fn get_node_by_named_id_mut(&mut self, named_id: &str) -> Option<&mut Node<'doc>> {
-        let node_id = self.named_id_elements.get(named_id)?;
-        self.arena.get_node_mut(*node_id)
+    pub fn with_node_by_named_id(&mut self, named_id: &str, f: impl FnOnce(&mut Node)) {
+        self.named_id_elements
+            .get(named_id)
+            .map(|&node_id| self.arena.with_node_by_id(node_id, f));
     }
 
     /// according to HTML5 spec: 3.2.3.1
@@ -142,31 +215,32 @@ impl<'doc> Document<'doc> {
             return;
         }
 
-        let mut old_named_id: Option<String> = None;
-        if let Some(node) = self.get_node_by_id_mut(node_id) {
+        self.with_node_by_id(node_id, |node| {
             if node.type_of() != NodeType::Element {
-                return;
             }
 
-            old_named_id = node.get_named_id();
+            // let old_named_id = node.get_named_id();
 
-            node.set_named_id(named_id);
-            self.named_id_elements.insert(named_id.to_owned(), node_id);
-        }
+            // node.set_named_id(named_id);
+            // self.named_id_elements.insert(named_id.to_owned(), node_id);
 
-        if let Some(old_named_id) = old_named_id {
-            self.named_id_elements.remove(&old_named_id);
-        }
+            // if let Some(old_named_id) = old_named_id {
+            //     self.named_id_elements.remove(&old_named_id);
+            // }
+        });
     }
 
     // Add to the document
-    pub fn add_node(&mut self, node: Node<'doc>, parent_id: NodeId) -> NodeId {
+    pub fn add_node(&mut self, mut node: Node, parent_id: NodeId) -> NodeId {
         let mut node_named_id: Option<String> = None;
-        if let NodeData::Element(element) = &node.data {
-            if let Some(named_id) = element.attributes.get("id") {
-                node_named_id = Some(named_id.clone());
+
+        node.with_data(|data| {
+            if let NodeData::Element(element) = &data {
+                if let Some(named_id) = element.attributes.get("id") {
+                    node_named_id = Some(named_id.clone());
+                }
             }
-        }
+        });
 
         let node_type = node.type_of();
         let node_id = self.arena.add_node(node);
@@ -176,6 +250,7 @@ impl<'doc> Document<'doc> {
             }
         }
         self.arena.attach_node(parent_id, node_id);
+
         node_id
     }
 
@@ -185,33 +260,33 @@ impl<'doc> Document<'doc> {
 
     pub fn relocate(&mut self, node_id: NodeId, parent_id: NodeId) {
         // Remove the node from its current parent (if any)
-        let cur_parent_id = self.arena.get_node(node_id).expect("node not found").parent;
+        let cur_parent_id = self
+            .arena
+            .get_node(node_id)
+            .expect("node not found")
+            .parent();
         if let Some(parent_node_id) = cur_parent_id {
-            let cur_parent = self
-                .arena
-                .get_node_mut(parent_node_id)
-                .expect("node not found");
-            cur_parent.children.retain(|&x| x != node_id);
+            self.arena.with_node_by_id(parent_node_id, |cur_parent| {
+                cur_parent.children_mut().retain(|&x| x != node_id);
+            });
         }
 
         // Add the node to the new parent as a child, and update the node's parent
         self.arena
-            .get_node_mut(parent_id)
-            .unwrap()
-            .children
-            .push(node_id);
-        self.arena.get_node_mut(node_id).unwrap().parent = Some(parent_id);
+            .with_node_by_id(parent_id, |node| node.children_mut().push(node_id));
+        self.arena
+            .with_node_by_id(node_id, |node| node.set_parent(Some(parent_id)));
     }
 
     /// return the root node
-    pub fn get_root(&self) -> &Node {
+    pub fn get_root(&self) -> Node {
         self.arena
             .get_node(NodeId::root())
             .expect("Root node not found !?")
     }
 }
 
-impl Document<'_> {
+impl Inner {
     /// Print a node and all its children in a tree-like structure
     pub fn print_tree(&self, node: &Node, prefix: String, last: bool, f: &mut fmt::Formatter<'_>) {
         let mut buffer = prefix.clone();
@@ -221,7 +296,7 @@ impl Document<'_> {
             buffer.push_str("├─ ");
         }
 
-        match &node.data {
+        match &*node.data() {
             NodeData::Document(_) => {
                 _ = writeln!(f, "{}Document", buffer);
             }
@@ -254,32 +329,32 @@ impl Document<'_> {
             buffer.push_str("│  ");
         }
 
-        let len = node.children.len();
-        for (i, child) in node.children.iter().enumerate() {
-            let child = self.arena.get_node(*child).expect("Child not found");
-            self.print_tree(child, buffer.clone(), i == len - 1, f);
+        let len = node.children().len();
+        for (i, &child) in node.children().iter().enumerate() {
+            let child = self.arena.get_node(child).expect("Child not found");
+            self.print_tree(&child, buffer.clone(), i == len - 1, f);
         }
     }
 }
 
-impl fmt::Display for Document<'_> {
+impl fmt::Display for Inner {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.print_tree(self.get_root(), "".to_string(), true, f);
+        self.print_tree(&self.get_root(), "".to_string(), true, f);
         Ok(())
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use crate::html5_parser::node::HTML_NAMESPACE;
-    use crate::html5_parser::parser::{Document, Node, NodeData, NodeId};
     use std::collections::HashMap;
 
     #[ignore]
     #[test]
     fn test_document() {
         let mut document = Document::new();
-        let root_id = document.get_root().id;
+        let root_id = document.get_root().id();
         let html_id = document.add_node(
             Node::new_element("html", HashMap::new(), HTML_NAMESPACE),
             root_id,
@@ -303,22 +378,14 @@ mod tests {
         );
         let p_text_id = document.add_node(Node::new_text("This is a paragraph"), p_id);
         let p_comment_id = document.add_node(Node::new_comment("This is a comment"), p_id);
-        let p_text2_id =
-            document.add_node(Node::new_text("This is another paragraph"), p_id);
-        let p_text3_id =
-            document.add_node(Node::new_text("This is a third paragraph"), p_id);
-        let p_text4_id =
-            document.add_node(Node::new_text("This is a fourth paragraph"), p_id);
-        let p_text5_id =
-            document.add_node(Node::new_text("This is a fifth paragraph"), p_id);
-        let p_text6_id =
-            document.add_node(Node::new_text("This is a sixth paragraph"), p_id);
-        let p_text7_id =
-            document.add_node(Node::new_text("This is a seventh paragraph"), p_id);
-        let p_text8_id =
-            document.add_node(Node::new_text("This is a eighth paragraph"), p_id);
-        let p_text9_id =
-            document.add_node(Node::new_text("This is a ninth paragraph"), p_id);
+        let p_text2_id = document.add_node(Node::new_text("This is another paragraph"), p_id);
+        let p_text3_id = document.add_node(Node::new_text("This is a third paragraph"), p_id);
+        let p_text4_id = document.add_node(Node::new_text("This is a fourth paragraph"), p_id);
+        let p_text5_id = document.add_node(Node::new_text("This is a fifth paragraph"), p_id);
+        let p_text6_id = document.add_node(Node::new_text("This is a sixth paragraph"), p_id);
+        let p_text7_id = document.add_node(Node::new_text("This is a seventh paragraph"), p_id);
+        let p_text8_id = document.add_node(Node::new_text("This is a eighth paragraph"), p_id);
+        let p_text9_id = document.add_node(Node::new_text("This is a ninth paragraph"), p_id);
 
         document.append(p_text9_id, p_id);
         document.append(p_text8_id, p_id);
@@ -364,7 +431,7 @@ mod tests {
     fn set_named_id_to_element() {
         let attributes = HashMap::new();
         let node = Node::new_element("div", attributes.clone(), HTML_NAMESPACE);
-        let mut doc = Document::new();
+        let mut doc = Inner::new();
         let node_id = NodeId(1);
         let _ = doc.add_node(node, node_id);
         // invalid name (empty)
@@ -388,7 +455,7 @@ mod tests {
     #[test]
     fn set_named_id_to_non_element() {
         let node = Node::new_text("sample");
-        let mut doc = Document::new();
+        let mut doc = Inner::new();
         let node_id = NodeId(1);
         let _ = doc.add_node(node, node_id);
 
@@ -404,28 +471,28 @@ mod tests {
         let mut node1 = Node::new_element("div", attributes.clone(), HTML_NAMESPACE);
         let mut node2 = Node::new_element("div", attributes.clone(), HTML_NAMESPACE);
 
-        match &mut node1.data {
+        node1.with_data(|data| match data {
             NodeData::Element(element) => {
                 element.attributes.insert("id", "myid");
             }
             _ => panic!(),
-        }
+        });
 
-        match &mut node2.data {
+        node2.with_data(|data| match data {
             NodeData::Element(element) => {
                 element.attributes.insert("id", "myid");
             }
             _ => panic!(),
-        }
+        });
 
-        let mut doc = Document::new();
+        let mut doc = Inner::new();
         let _ = doc.add_node(node1, NodeId(1));
         let _ = doc.add_node(node2, NodeId(2));
 
         // two elements here have the same ID, the ID will only be tied to NodeId(1) since
         // the HTML5 spec specifies that every ID must uniquely specify one element in the DOM
         // and we inserted NodeId(1) first
-        assert_eq!(doc.get_node_by_named_id("myid").unwrap().id, NodeId(1));
+        assert_eq!(doc.get_node_by_named_id("myid").unwrap().id(), NodeId(1));
 
         // however, with that in mind, NodeId(2) will still have id="myid" on the Node itself,
         // but it is not searchable in the DOM. Even if you change the id of NodeId(1), NodeId(2)

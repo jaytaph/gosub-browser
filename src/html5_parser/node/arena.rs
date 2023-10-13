@@ -1,13 +1,13 @@
 use crate::html5_parser::node::Node;
-use std::collections::HashMap;
+use std::{collections::HashMap};
 
 use super::NodeId;
 
 /// The node arena is the single source for nodes in a document (or fragment).
 #[derive(Debug, Clone, PartialEq)]
-pub struct NodeArena<'doc> {
+pub struct NodeArena {
     /// Current nodes stored as <id, node>
-    nodes: HashMap<NodeId, Node<'doc>>,
+    nodes: HashMap<NodeId, Node>,
     /// Order of nodes
     order: Vec<NodeId>,
     /// Next node ID to use
@@ -20,7 +20,7 @@ impl Clone for NodeId {
     }
 }
 
-impl<'doc> NodeArena<'doc> {
+impl NodeArena {
     /// Prints the list of nodes in sequential order. This makes debugging a bit easier, but should
     /// be removed.
     pub(crate) fn print_nodes(&self) {
@@ -30,7 +30,7 @@ impl<'doc> NodeArena<'doc> {
     }
 }
 
-impl<'doc> NodeArena<'doc> {
+impl NodeArena {
     /// Create a new NodeArena
     pub fn new() -> Self {
         Self {
@@ -41,21 +41,25 @@ impl<'doc> NodeArena<'doc> {
     }
 
     /// Get the node with the given id
-    pub fn get_node(&self, node_id: NodeId) -> Option<&Node> {
-        self.nodes.get(&node_id)
+    pub fn get_node(&self, node_id: NodeId) -> Option<Node> {
+        self.nodes.get(&node_id).cloned()
     }
 
     /// Get the node with the given id as a mutable reference
-    pub fn get_node_mut(&mut self, node_id: NodeId) -> Option<&mut Node<'doc>> {
-        self.nodes.get_mut(&node_id)
+    pub fn with_node_by_id<T>(
+        &mut self,
+        node_id: NodeId,
+        f: impl FnOnce(&mut Node) -> T,
+    ) -> Option<T> {
+        self.nodes.get_mut(&node_id).map(f)
     }
 
     /// Add the node to the arena and return its id
-    pub fn add_node(&mut self, mut node: Node<'doc>) -> NodeId {
+    pub fn add_node(&mut self, mut node: Node) -> NodeId {
         let id = self.next_id;
         self.next_id = id.next();
 
-        node.id = id;
+        node.set_id(id);
         self.nodes.insert(id, node);
         self.order.push(id);
         id
@@ -68,10 +72,10 @@ impl<'doc> NodeArena<'doc> {
             return false;
         }
         if let Some(parent_node) = self.nodes.get_mut(&parent_id) {
-            parent_node.children.push(node_id);
+            parent_node.children_mut().push(node_id);
         }
         if let Some(node) = self.nodes.get_mut(&node_id) {
-            node.parent = Some(parent_id);
+            node.set_parent(Some(parent_id));
         }
 
         true
@@ -81,7 +85,8 @@ impl<'doc> NodeArena<'doc> {
     fn detach_node(&mut self, node_id: NodeId) {
         // Remove children
         if let Some(node) = self.nodes.get_mut(&node_id) {
-            for child_id in node.children.clone() {
+            let children = node.children().clone();
+            for child_id in children {
                 self.detach_node(child_id);
             }
         }
@@ -89,16 +94,16 @@ impl<'doc> NodeArena<'doc> {
         if let Some(node) = self.nodes.remove(&node_id) {
             self.order.retain(|&id| id != node_id);
 
-            if let Some(parent_id) = node.parent {
+            if let Some(parent_id) = node.parent() {
                 if let Some(parent_node) = self.nodes.get_mut(&parent_id) {
-                    parent_node.children.retain(|&id| id != node_id);
+                    parent_node.children_mut().retain(|&id| id != node_id);
                 }
             }
         }
     }
 }
 
-impl Default for NodeArena<'_> {
+impl Default for NodeArena {
     fn default() -> Self {
         Self::new()
     }
@@ -106,45 +111,45 @@ impl Default for NodeArena<'_> {
 
 /// Returns true when the parent node has the child node as a child, or if any of the children of
 /// the parent node have the child node as a child.
-fn has_child_recursive(arena: &mut NodeArena, parent_id: NodeId, child_id: NodeId) -> bool {
-    let node = arena.get_node_mut(parent_id).cloned();
-    if node.is_none() {
-        return false;
+fn has_child_recursive(arena: &NodeArena, parent_id: NodeId, child_id: NodeId) -> bool {
+    let parent = arena.get_node(parent_id).expect("parent");
+
+    for &id in &*parent.children() {
+        if id == child_id {
+            return true;
+        }
+
+        let child = arena.get_node(id);
+        if has_child(arena, child.as_ref(), child_id) {
+            return true;
+        }
     }
 
-    let node = node.unwrap();
-    for id in node.children.iter() {
-        if *id == child_id {
-            return true;
-        }
-        let child = arena.get_node_mut(*id).cloned();
-        if has_child(arena, child, child_id) {
-            return true;
-        }
-    }
     false
 }
 
-fn has_child(arena: &mut NodeArena, parent: Option<Node>, child_id: NodeId) -> bool {
+fn has_child(arena: &NodeArena, parent: Option<&Node>, child_id: NodeId) -> bool {
     let parent_node = if let Some(node) = parent {
         node
     } else {
         return false;
     };
 
-    if parent_node.children.is_empty() {
+    if parent_node.children().is_empty() {
         return false;
     }
 
-    for id in parent_node.children {
+    for &id in &*parent_node.children() {
         if id == child_id {
             return true;
         }
-        let node = arena.get_node_mut(id).cloned();
-        if has_child(arena, node, child_id) {
+
+        let child = arena.get_node(id);
+        if has_child(arena, child.as_ref(), child_id) {
             return true;
         }
     }
+
     false
 }
 
@@ -170,7 +175,7 @@ mod tests {
         let id = arena.add_node(node);
         let node = arena.get_node(id);
         assert!(node.is_some());
-        assert_eq!(node.unwrap().name, "test");
+        assert_eq!(*node.unwrap().name(), "test");
     }
 
     #[test]
@@ -180,9 +185,12 @@ mod tests {
         let node = Node::new_element("test", HashMap::new(), HTML_NAMESPACE);
         let id = arena.add_node(node);
 
-        let node = arena.get_node_mut(id);
-        assert!(node.is_some());
-        assert_eq!(node.unwrap().name, "test");
+        arena
+            .with_node_by_id(id, |node| {
+                assert_eq!(*node.name(), "test");
+                true
+            })
+            .expect("node");
     }
 
     #[test]
@@ -196,14 +204,13 @@ mod tests {
 
         assert!(arena.attach_node(parent_id, child_id));
 
-        let parent = arena.get_node(parent_id);
-        assert!(parent.is_some());
-        assert_eq!(parent.unwrap().children.len(), 1);
-        assert_eq!(parent.unwrap().children[0], child_id);
+        let parent = &arena.get_node(parent_id).unwrap();
+        assert_eq!(parent.children().len(), 1);
+        assert_eq!(parent.children()[0], child_id);
 
         let child = arena.get_node(child_id);
         assert!(child.is_some());
-        assert_eq!(child.unwrap().parent, Some(parent_id));
+        assert_eq!(child.unwrap().parent(), Some(parent_id));
     }
 
     #[test]
@@ -217,7 +224,7 @@ mod tests {
 
         let node = arena.get_node(node_id);
         assert!(node.is_some());
-        assert_eq!(node.unwrap().children.len(), 0);
+        assert_eq!(node.unwrap().children().len(), 0);
     }
 
     #[test]
@@ -228,7 +235,7 @@ mod tests {
 
         // push the PARENT to the CHILD
         let parent_id = arena.add_node(parent);
-        child.children.push(parent_id);
+        child.push_child(parent_id);
 
         // try and add the CHILD to the PARENT
         let child_id = arena.add_node(child);
@@ -238,8 +245,8 @@ mod tests {
         let child = arena.get_node(child_id);
         assert!(parent.is_some());
         assert!(child.is_some());
-        assert_eq!(parent.unwrap().children.len(), 0); // parent could not add child, recursive
-        assert_eq!(child.unwrap().children.len(), 1); // child adding the parent is ok
+        assert_eq!(parent.unwrap().children().len(), 0); // parent could not add child, recursive
+        assert_eq!(child.unwrap().children().len(), 1); // child adding the parent is ok
     }
 
     #[test]
@@ -259,9 +266,9 @@ mod tests {
         let parent = arena.get_node(parent_id);
         let child1 = arena.get_node(child1_id);
         let child2 = arena.get_node(child2_id);
-        assert_eq!(parent.unwrap().children.len(), 1);
-        assert_eq!(child1.unwrap().children.len(), 1);
-        assert_eq!(child2.unwrap().children.len(), 0);
+        assert_eq!(parent.unwrap().children().len(), 1);
+        assert_eq!(child1.unwrap().children().len(), 1);
+        assert_eq!(child2.unwrap().children().len(), 0);
 
         // Add parent to child 2, thus creating a loop
         assert!(!arena.attach_node(child2_id, parent_id));
@@ -269,9 +276,9 @@ mod tests {
         let parent = arena.get_node(parent_id);
         let child1 = arena.get_node(child1_id);
         let child2 = arena.get_node(child2_id);
-        assert_eq!(parent.unwrap().children.len(), 1);
-        assert_eq!(child1.unwrap().children.len(), 1);
-        assert_eq!(child2.unwrap().children.len(), 0);
+        assert_eq!(parent.unwrap().children().len(), 1);
+        assert_eq!(child1.unwrap().children().len(), 1);
+        assert_eq!(child2.unwrap().children().len(), 0);
     }
 
     #[test]
@@ -288,7 +295,7 @@ mod tests {
 
         let parent = arena.get_node(parent_id);
         assert!(parent.is_some());
-        assert_eq!(parent.unwrap().children.len(), 0);
+        assert_eq!(parent.unwrap().children().len(), 0);
 
         let child = arena.get_node(child_id);
         assert!(child.is_none());
@@ -309,7 +316,7 @@ mod tests {
         arena.attach_node(parent_id, child2_id);
         let parent = arena.get_node(parent_id);
         assert!(parent.is_some());
-        assert_eq!(parent.unwrap().children.len(), 2);
+        assert_eq!(parent.unwrap().children().len(), 2);
 
         arena.detach_node(child1_id);
 
@@ -317,10 +324,10 @@ mod tests {
         assert!(child.is_none());
         let child = arena.get_node(child2_id);
         assert!(child.is_some());
-        assert_eq!(child.unwrap().parent, Some(parent_id));
+        assert_eq!(child.unwrap().parent(), Some(parent_id));
 
         let parent = arena.get_node(parent_id);
-        assert_eq!(parent.unwrap().children.len(), 1);
+        assert_eq!(parent.unwrap().children().len(), 1);
     }
 
     #[test]
