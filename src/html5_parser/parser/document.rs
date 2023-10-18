@@ -1,8 +1,9 @@
 use crate::html5_parser::node::arena::NodeArena;
 use crate::html5_parser::node::data::{comment::CommentData, text::TextData};
-use crate::html5_parser::node::{Node, NodeData, NodeId};
 use crate::html5_parser::node::HTML_NAMESPACE;
+use crate::html5_parser::node::{Node, NodeData, NodeId};
 use crate::html5_parser::parser::quirks::QuirksMode;
+use crate::types::{Error, Result};
 use alloc::rc::Rc;
 use core::fmt;
 use core::fmt::Debug;
@@ -57,8 +58,8 @@ impl DocumentFragment {
 pub struct Document {
     arena: NodeArena,
     pub(crate) named_id_elements: HashMap<String, NodeId>, // HTML elements with ID (e.g., <div id="myid">)
-    pub doctype: DocumentType,                  // Document type
-    pub quirks_mode: QuirksMode,                // Quirks mode
+    pub doctype: DocumentType,                             // Document type
+    pub quirks_mode: QuirksMode,                           // Quirks mode
 }
 
 impl Default for Document {
@@ -131,7 +132,6 @@ impl Document {
 
     // Add to the document
     pub fn add_node(&mut self, node: Node, parent_id: NodeId) -> NodeId {
-
         let node_id = self.arena.add_node(node);
 
         // update the node's ID (it uses default ID when first created)
@@ -248,6 +248,49 @@ impl PartialEq for DocumentHandle {
     }
 }
 
+pub struct ElementUpdate {
+    document: DocumentHandle,
+    node_id: NodeId,
+}
+
+impl ElementUpdate {
+    fn set_attribute(&mut self, name: &str, value: &str) -> Result<()> {
+        let mut document = (&mut self.document).get_mut();
+
+        let node = if let Some(node) = document.get_node_by_id_mut(self.node_id) {
+            node
+        } else {
+            return Err(Error::Parse("no such node".into()));
+        };
+
+        let element = if let NodeData::Element(element) = &mut node.data {
+            element
+        } else {
+            return Err(Error::Parse("not an element".into()));
+        };
+
+        let old_named_id = element.attributes.get(name).map(String::from);
+        element.attributes.insert(name, value);
+
+        match name {
+            "id" => {
+                let named_id_elements = &mut document.named_id_elements;
+                named_id_elements.insert(value.to_owned(), self.node_id);
+
+                if let Some(old_named_id) = old_named_id {
+                    named_id_elements.remove(&old_named_id);
+                }
+            }
+
+            "class" => todo!(),
+
+            _ => {}
+        };
+
+        Ok(())
+    }
+}
+
 // NOTE: it is preferred to use Document::clone() when
 // copying a DocumentHandle reference. However, for
 // any structs using this handle that use #[derive(Clone)],
@@ -277,6 +320,20 @@ impl DocumentHandle {
     fn add_text(&mut self, parent_id: NodeId, text: &str) -> NodeId {
         let node = Node::new_text(self, text);
         self.get_mut().add_node(node, parent_id)
+    }
+
+    fn get_element_by_id_mut(&mut self, node_id: NodeId) -> Option<ElementUpdate> {
+        let inner = self.0.borrow();
+        let node = inner.get_node_by_id(node_id)?;
+
+        if matches!(&node.data, NodeData::Element(..)) {
+            return Some(ElementUpdate {
+                document: Document::clone(self),
+                node_id,
+            });
+        }
+
+        None
     }
 }
 
@@ -355,42 +412,21 @@ mod tests {
         document.get_mut().create_root(&doc_clone);
 
         let node = Node::new_element(&document, "div", HashMap::new(), HTML_NAMESPACE);
-        let node_id = NodeId::from(0);
-        document.get_mut().add_node(node, node_id);
+        let node_id = document.get_mut().add_node(node, NodeId::root());
 
-        let mut doc_mut = document.get_mut();
-        if let NodeData::Element(element) = &mut doc_mut.get_node_by_id_mut(NodeId::from(1)).unwrap().data {
-                element.attributes.insert("id", "");
-                let mut contains = doc_mut.named_id_elements.contains_key("\"\"");
-                assert!(!contains);
+        let mut element = document.get_element_by_id_mut(node_id).unwrap();
 
-                element.attributes.insert("id", "my id");
-                contains = doc_mut.named_id_elements.contains_key("my id");
-                assert!(!contains);
+        element.set_attribute("id", "").unwrap();
+        element.set_attribute("id", "my id").unwrap();
+        element.set_attribute("id", "123").unwrap();
+        element.set_attribute("id", "myid").unwrap();
 
-                element.attributes.insert("id", "123");
-                contains = doc_mut.named_id_elements.contains_key("123");
-                assert!(!contains);
-
-                element.attributes.insert("id", "myid");
-                contains = doc_mut.named_id_elements.contains_key("myid");
-                assert!(contains);
-
-        } else {
-            panic!()
-        };
-
-        
-        /*
-        element.attributes.insert("id", "my id");
-        assert!(!doc_mut.named_id_elements.contains_key("my id"));
-
-        element.attributes.insert("id", "123");
-        assert!(!doc_mut.named_id_elements.contains_key("123"));
-
-        element.attributes.insert("id", "myid");
-        assert!(doc_mut.named_id_elements.contains_key("myid"));
-        */
+        let doc = document.get();
+        assert!(!doc.named_id_elements.contains_key("\"\""));
+        assert!(!doc.named_id_elements.contains_key("my id"));
+        assert!(!doc.named_id_elements.contains_key("123"));
+        assert!(!doc.named_id_elements.contains_key("123"));
+        assert!(doc.named_id_elements.contains_key("myid"));
     }
 
     #[test]
@@ -408,7 +444,7 @@ mod tests {
             panic!()
         };
         element1.attributes.insert("id", "myid");
-        
+
         let NodeData::Element(ref mut element2) = node2.data else {
             panic!()
         };
