@@ -1,4 +1,4 @@
-use crate::bytes::Position;
+use crate::html5::input_stream::Position;
 use crate::types::ParseError;
 
 /// Possible parser error enumerated
