@@ -21,6 +21,10 @@ format:  ## Fix formatting and clippy errors
 	cargo fmt
 	cargo clippy --fix --allow-dirty --allow-staged
 
+bindings: ## build the gosub-bindings library and compile C code (USES GCC)
+	cargo build --package gosub-bindings
+	gcc test.c -o test -lgosub_bindings -L./target/debug -g -Wall -Wextra
+
 test_unit:
 	source test-utils.sh ;\
 	section "Cargo test" ;\

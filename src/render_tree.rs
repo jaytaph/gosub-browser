@@ -1,9 +1,11 @@
 use std::borrow::BorrowMut;
 use std::{cell::RefCell, rc::Rc};
 
+use crate::bytes::{CharIterator, Encoding};
 use crate::html5::node::NodeData;
-use crate::html5::parser::document;
+use crate::html5::parser::document::{self, DocumentBuilder};
 use crate::html5::parser::document::{Document, DocumentHandle};
+use crate::html5::parser::Html5Parser;
 use crate::render_tree::{properties::Rectangle, text::TextNode};
 
 pub mod properties;

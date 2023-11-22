@@ -64,3 +64,6 @@ test-case = "3.3.1"
 [features]
 # Enables extended debugging information during parsing.
 debug_parser = []
+
+[dependencies.gosub-bindings]
+path = "./gosub-bindings"
