@@ -1,6 +1,7 @@
 static DEFAULT_FONT: &str = "Times New Roman";
 
 #[derive(Debug, PartialEq)]
+#[repr(C)]
 pub struct TextNode {
     /// Body of the text node that will be drawn
     pub value: String,

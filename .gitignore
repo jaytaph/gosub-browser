@@ -11,3 +11,7 @@ local/
 .DS_Store
 
 settings.db
+
+# C API tests
+gosub-bindings/tests/
+*.dSYM
