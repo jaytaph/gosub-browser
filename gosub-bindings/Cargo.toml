@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-gosub-engine = { git = "https://github.com/gosub-browser/gosub-engine", branch = "experimental/ffi-bindings" }
+gosub-engine = { path = "../" }
 
 [lib]
 crate-type = ["cdylib"]

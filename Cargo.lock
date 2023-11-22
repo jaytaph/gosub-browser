@@ -526,21 +526,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6fb8d784f27acf97159b40fc4db5ecd8aa23b9ad5ef69cdd136d3bc80665f0c0"
 
 [[package]]
-name = "gosub-bindings"
-version = "0.1.0"
-dependencies = [
- "gosub-engine 0.1.0 (git+https://github.com/gosub-browser/gosub-engine?branch=experimental/ffi-bindings)",
-]
-
-[[package]]
-name = "gosub-bindings"
-version = "0.1.0"
-source = "git+https://github.com/gosub-browser/gosub-engine?branch=experimental/ffi-bindings#85359d486c9f8a6009444b10079c7ee465691a5d"
-dependencies = [
- "gosub-engine 0.1.0 (git+https://github.com/gosub-browser/gosub-engine)",
-]
-
-[[package]]
 name = "gosub-engine"
 version = "0.1.0"
 dependencies = [
@@ -551,7 +536,6 @@ dependencies = [
  "criterion",
  "derive_more",
  "domain-lookup-tree",
- "gosub-bindings 0.1.0",
  "hickory-resolver",
  "lazy_static",
  "log",
@@ -565,71 +549,6 @@ dependencies = [
  "simple_logger",
  "sqlite",
  "test-case",
- "textwrap",
- "thiserror",
- "typed-arena",
- "ureq",
- "uuid",
- "walkdir",
- "wildmatch",
-]
-
-[[package]]
-name = "gosub-engine"
-version = "0.1.0"
-source = "git+https://github.com/gosub-browser/gosub-engine?branch=experimental/ffi-bindings#85359d486c9f8a6009444b10079c7ee465691a5d"
-dependencies = [
- "anyhow",
- "clap",
- "cli-table",
- "colored",
- "derive_more",
- "domain-lookup-tree",
- "gosub-bindings 0.1.0 (git+https://github.com/gosub-browser/gosub-engine?branch=experimental/ffi-bindings)",
- "hickory-resolver",
- "lazy_static",
- "log",
- "nom",
- "nom_locate",
- "phf",
- "regex",
- "serde",
- "serde_derive",
- "serde_json",
- "simple_logger",
- "sqlite",
- "textwrap",
- "thiserror",
- "typed-arena",
- "ureq",
- "uuid",
- "walkdir",
- "wildmatch",
-]
-
-[[package]]
-name = "gosub-engine"
-version = "0.1.0"
-source = "git+https://github.com/gosub-browser/gosub-engine#dd684aa502924ed0e86a70a768308f70e4e2089c"
-dependencies = [
- "anyhow",
- "clap",
- "cli-table",
- "colored",
- "derive_more",
- "domain-lookup-tree",
- "hickory-resolver",
- "lazy_static",
- "log",
- "nom",
- "nom_locate",
- "phf",
- "regex",
- "serde",
- "serde_derive",
- "serde_json",
- "simple_logger",
- "sqlite",
  "textwrap",
  "thiserror",
  "typed-arena",
