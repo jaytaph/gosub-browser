@@ -424,6 +424,7 @@ dependencies = [
  "domain-lookup-tree",
  "hickory-resolver",
  "lazy_static",
+ "libc",
  "log",
  "nom",
  "nom_locate",

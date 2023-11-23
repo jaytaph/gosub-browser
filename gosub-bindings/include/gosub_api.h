@@ -10,8 +10,9 @@ extern void *render_tree_init();
 extern void *render_tree_iterator_init(void *render_tree);
 struct node_t *render_tree_node_init();
 void render_tree_node_free(struct node_t **node);
-extern void *render_tree_next_node(void *tree_iterator);
-extern void render_tree_get_node_data(void *current_node, struct node_t *node);
+extern const void *render_tree_next_node(void *tree_iterator);
+extern void render_tree_get_node_data(const void *current_node,
+                                      struct node_t *node);
 extern void render_tree_iterator_free(void *tree_iterator);
 extern void render_tree_free(void *render_free);
 
@@ -22,7 +23,7 @@ struct node_text_t {
   bool is_bold;
 };
 
-enum node_type_e { NODE_TYPE_ROOT = 0, NODE_TYPE_TEXT = 1 };
+enum node_type_e { NODE_TYPE_ROOT = 0u, NODE_TYPE_TEXT };
 
 struct node_t {
   enum node_type_e type;

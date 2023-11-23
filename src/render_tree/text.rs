@@ -4,8 +4,8 @@ use std::{ffi::CString, os::raw::c_char};
 #[repr(C)]
 pub struct TextNode {
     /// Body of the text node that will be drawn
-    pub value: *const c_char,
-    pub font: *const c_char,
+    pub value: *mut c_char,
+    pub font: *mut c_char,
     pub font_size: f32,
     pub is_bold: bool,
     // TODO: color, styles, visiblity, etc

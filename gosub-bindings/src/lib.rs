@@ -16,7 +16,7 @@ use gosub_engine::{
 /// If the HTML fails to parse, returns a NULL pointer.
 pub extern "C" fn render_tree_init() -> *mut RenderTree {
     let mut chars = CharIterator::new();
-    chars.read_from_str("<html><h1>test</h1></html>", Some(Encoding::UTF8));
+    chars.read_from_str("<html><h1>heading1</h1></html>", Some(Encoding::UTF8));
     chars.set_confidence(Confidence::Certain);
 
     let doc = DocumentBuilder::new_document();

@@ -11,7 +11,7 @@ int main() {
   void *tree_iterator = render_tree_iterator_init(render_tree);
   assert(tree_iterator != NULL);
 
-  void *current_node = render_tree_next_node(tree_iterator);
+  const void *current_node = render_tree_next_node(tree_iterator);
   assert(current_node != NULL);
 
   struct node_t *node_data = render_tree_node_init();
@@ -25,6 +25,7 @@ int main() {
   current_node = render_tree_next_node(tree_iterator);
   render_tree_get_node_data(current_node, node_data);
   assert(node_data->type == NODE_TYPE_TEXT);
+  assert(strcmp(node_data->data.text.value, "heading1") == 0);
   assert(strcmp(node_data->data.text.font, "Times New Roman") == 0);
   assert(fabsf(node_data->data.text.font_size - 37.0f) < 0.00001f);
   assert(node_data->data.text.is_bold == true);

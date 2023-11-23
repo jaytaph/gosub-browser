@@ -1,6 +1,8 @@
 use std::borrow::BorrowMut;
-use std::ffi::CString;
+use std::ffi::{c_char, CString};
 use std::{cell::RefCell, rc::Rc};
+
+use libc::size_t;
 
 use crate::bytes::{CharIterator, Encoding};
 use crate::html5::node::NodeData;
@@ -125,13 +127,14 @@ impl RenderTree {
                     NodeData::Text(text) => {
                         let mut mut_element_ref = reference_element.as_ref().borrow_mut();
                         if let NodeType::Text(element_text) = &mut mut_element_ref.node_type {
-                            // TODO: need to append text instead of replace, but this will work for now
-                            // (need to be careful about memory here)
-                            if !element_text.value.is_null() {
-                                let _ = unsafe { CString::from_raw(element_text.value as *mut i8) };
+                            unsafe {
+                                // Rust strings are NOT null terminated, using strncat to be safe(r)
+                                libc::strncat(
+                                    element_text.value,
+                                    text.value().as_ptr() as *const c_char,
+                                    text.value().len() as size_t,
+                                );
                             }
-                            element_text.value = CString::new(text.value()).expect("").into_raw();
-                            //element_text.value.push_str(text.value());
                         }
                     }
                     _ => { /* ignore */ }
