@@ -14,7 +14,7 @@ use gosub_engine::{
 #[no_mangle]
 /// Initialize a render tree and return an owning pointer to it.
 /// If the HTML fails to parse, returns a NULL pointer.
-pub extern "C" fn render_tree_init() -> *mut RenderTree {
+pub extern "C" fn gosub_render_tree_init() -> *mut RenderTree {
     let mut chars = CharIterator::new();
     chars.read_from_str("<html><h1>heading1</h1></html>", Some(Encoding::UTF8));
     chars.set_confidence(Confidence::Certain);
@@ -34,7 +34,9 @@ pub extern "C" fn render_tree_init() -> *mut RenderTree {
 
 #[no_mangle]
 /// Construct a tree iterator for a render tree and return an owning pointer to it.
-pub extern "C" fn render_tree_iterator_init(render_tree: *const RenderTree) -> *mut TreeIterator {
+pub extern "C" fn gosub_render_tree_iterator_init(
+    render_tree: *const RenderTree,
+) -> *mut TreeIterator {
     unsafe {
         let tree_iterator = Box::new(TreeIterator::new(&(*render_tree)));
         Box::into_raw(tree_iterator)
@@ -43,7 +45,7 @@ pub extern "C" fn render_tree_iterator_init(render_tree: *const RenderTree) -> *
 
 #[no_mangle]
 /// Takes a tree_iterator and returns a non-owning pointer to the next node
-pub extern "C" fn render_tree_next_node(tree_iterator: *mut TreeIterator) -> *const Node {
+pub extern "C" fn gosub_render_tree_next_node(tree_iterator: *mut TreeIterator) -> *const Node {
     unsafe {
         if let Some(current_node) = (*tree_iterator).current() {
             if let NodeType::Text(text) = &mut current_node.borrow_mut().node_type {
@@ -62,7 +64,7 @@ pub extern "C" fn render_tree_next_node(tree_iterator: *mut TreeIterator) -> *co
 }
 
 #[no_mangle]
-pub extern "C" fn render_tree_get_node_data(node: *const Node, node_data: *mut NodeType) {
+pub extern "C" fn gosub_render_tree_get_node_data(node: *const Node, node_data: *mut NodeType) {
     unsafe {
         ptr::copy_nonoverlapping(
             &(*node).node_type,
@@ -73,14 +75,14 @@ pub extern "C" fn render_tree_get_node_data(node: *const Node, node_data: *mut N
 }
 
 #[no_mangle]
-pub extern "C" fn render_tree_iterator_free(tree_iterator: *mut TreeIterator) {
+pub extern "C" fn gosub_render_tree_iterator_free(tree_iterator: *mut TreeIterator) {
     unsafe {
         let _ = Box::from_raw(tree_iterator);
     }
 }
 
 #[no_mangle]
-pub extern "C" fn render_tree_free(render_tree: *mut RenderTree) {
+pub extern "C" fn gosub_render_tree_free(render_tree: *mut RenderTree) {
     unsafe {
         let _ = Box::from_raw(render_tree);
     }

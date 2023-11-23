@@ -21,19 +21,6 @@ format:  ## Fix formatting and clippy errors
 	cargo fmt
 	cargo clippy --fix --allow-dirty --allow-staged
 
-ROOT_DIR := gosub-bindings
-INCLUDE_DIR := $(ROOT_DIR)/include
-SRC_DIR := $(ROOT_DIR)/tests
-CPPFLAGS := -I$(INCLUDE_DIR)
-CFLAGS := -std=c99 -g -Wall -Wextra
-LDFLAGS := -L$(ROOT_DIR)/target/debug
-LDLIBS := -lgosub_bindings
-CC := gcc
-bindings: ## build the gosub-bindings library and compile C code tests
-	# cargo build --package gosub-bindings
-	$(CC) $(SRC_DIR)/render_tree_test.c -o $(SRC_DIR)/render_tree_test $(CPPFLAGS) $(LDLIBS) $(LDFLAGS) $(CFLAGS)
-	./$(SRC_DIR)/render_tree_test
-
 test_unit:
 	source test-utils.sh ;\
 	section "Cargo test" ;\
