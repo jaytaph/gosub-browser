@@ -1,11 +1,11 @@
 #include "gosub_api.h"
 
-struct render_tree_t *render_tree_init() {
+struct render_tree_t *render_tree_init(const char *html) {
   struct render_tree_t *render_tree = malloc(sizeof(*render_tree));
   if (!render_tree)
     return NULL;
 
-  render_tree->tree = gosub_render_tree_init();
+  render_tree->tree = gosub_render_tree_init(html);
   if (!render_tree->tree) {
     free(render_tree);
     return NULL;

@@ -5,7 +5,10 @@
 #include <string.h>
 
 int main() {
-  struct render_tree_t *render_tree = render_tree_init();
+  const char *html = "<html>"
+                     "<h1>heading1</h1>"
+                     "</html>";
+  struct render_tree_t *render_tree = render_tree_init(html);
   assert(render_tree != NULL);
 
   const struct node_t *node = NULL;

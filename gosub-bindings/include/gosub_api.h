@@ -3,7 +3,7 @@
 
 #include "nodes.h"
 
-extern void *gosub_render_tree_init();
+extern void *gosub_render_tree_init(const char *html);
 extern void *gosub_render_tree_iterator_init(void *render_tree);
 extern const void *gosub_render_tree_next_node(void *tree_iterator);
 extern void gosub_render_tree_get_node_data(const void *current_node,
@@ -20,7 +20,7 @@ struct render_tree_t {
 
 /// Construct a new render tree.
 /// Returns NULL if unsuccessful.
-struct render_tree_t *render_tree_init();
+struct render_tree_t *render_tree_init(const char *html);
 
 /// Get the next node in the render tree as a read-only pointer.
 /// Returns NULL when reaching end of tree.

@@ -1,3 +1,4 @@
+use std::ffi::CStr;
 use std::ffi::CString;
 use std::os::raw::c_char;
 use std::{cell::RefCell, f64::consts, ptr, rc::Rc};
@@ -14,9 +15,13 @@ use gosub_engine::{
 #[no_mangle]
 /// Initialize a render tree and return an owning pointer to it.
 /// If the HTML fails to parse, returns a NULL pointer.
-pub extern "C" fn gosub_render_tree_init() -> *mut RenderTree {
+pub extern "C" fn gosub_render_tree_init(html: *const c_char) -> *mut RenderTree {
+    let html_str: &str;
+    unsafe {
+        html_str = CStr::from_ptr(html).to_str().unwrap();
+    }
     let mut chars = CharIterator::new();
-    chars.read_from_str("<html><h1>heading1</h1></html>", Some(Encoding::UTF8));
+    chars.read_from_str(html_str, Some(Encoding::UTF8));
     chars.set_confidence(Confidence::Certain);
 
     let doc = DocumentBuilder::new_document();
