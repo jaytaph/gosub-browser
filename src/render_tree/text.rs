@@ -1,21 +1,21 @@
-static DEFAULT_FONT: &str = "Times New Roman";
+use std::{ffi::CString, os::raw::c_char};
 
 #[derive(Debug, PartialEq)]
 #[repr(C)]
 pub struct TextNode {
     /// Body of the text node that will be drawn
-    pub value: String,
-    pub font: String,
-    pub font_size: f64,
+    pub value: *const c_char,
+    pub font: *const c_char,
+    pub font_size: f32,
     pub is_bold: bool,
     // TODO: color, styles, visiblity, etc
 }
 
 impl TextNode {
-    fn new(fs: f64, bold: bool) -> Self {
+    fn new(fs: f32, bold: bool) -> Self {
         Self {
-            value: "".to_owned(),
-            font: DEFAULT_FONT.to_owned(),
+            value: CString::new("").expect("").into_raw(),
+            font: CString::new("Times New Roman").expect("").into_raw(),
             font_size: fs,
             is_bold: bold,
         }

@@ -9,9 +9,11 @@
 extern void *render_tree_init();
 extern void *render_tree_iterator_init(void *render_tree);
 struct node_t *render_tree_node_init();
+void render_tree_node_free(struct node_t **node);
 extern void *render_tree_next_node(void *tree_iterator);
-extern void render_tree_get_node_data(void *node,
-                                      struct node_type_t *node_type);
+extern void render_tree_get_node_data(void *current_node, struct node_t *node);
+extern void render_tree_iterator_free(void *tree_iterator);
+extern void render_tree_free(void *render_free);
 
 struct node_text_t {
   char *value;
@@ -20,8 +22,10 @@ struct node_text_t {
   bool is_bold;
 };
 
+enum node_type_e { NODE_TYPE_ROOT = 0, NODE_TYPE_TEXT = 1 };
+
 struct node_t {
-  uint8_t type;
+  enum node_type_e type;
   union data {
     bool root;               // NODE_TYPE_ROOT
     struct node_text_t text; // NODE_TYPE_TEXT
@@ -33,10 +37,15 @@ struct node_t *render_tree_node_init() {
   if (!node)
     return NULL;
 
-  node->type = 0u;
+  node->type = NODE_TYPE_ROOT;
   node->data.root = true; // dummy value
 
   return node;
+}
+
+void render_tree_node_free(struct node_t **node) {
+  free(*node);
+  *node = NULL;
 }
 
 #endif

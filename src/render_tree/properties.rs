@@ -1,10 +1,11 @@
 /// Rectangular dimensions commonly used for certain properties such as margin/padding
 #[derive(Debug, PartialEq)]
+#[repr(C)]
 pub struct Rectangle {
-    pub top: f64,
-    pub left: f64,
-    pub right: f64,
-    pub bottom: f64,
+    pub top: f32,
+    pub left: f32,
+    pub right: f32,
+    pub bottom: f32,
 }
 
 impl Default for Rectangle {
@@ -23,7 +24,7 @@ impl Rectangle {
         Self::default()
     }
 
-    pub fn with_values(top: f64, left: f64, right: f64, bottom: f64) -> Self {
+    pub fn with_values(top: f32, left: f32, right: f32, bottom: f32) -> Self {
         Self {
             top,
             left,

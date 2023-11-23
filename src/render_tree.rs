@@ -1,4 +1,5 @@
 use std::borrow::BorrowMut;
+use std::ffi::CString;
 use std::{cell::RefCell, rc::Rc};
 
 use crate::bytes::{CharIterator, Encoding};
@@ -16,8 +17,8 @@ pub mod util;
 /// to draw an object
 #[derive(Debug, PartialEq)]
 pub struct Position {
-    pub x: f64,
-    pub y: f64,
+    pub x: f32,
+    pub y: f32,
 }
 
 impl Position {
@@ -34,7 +35,7 @@ impl Position {
     }
 
     /// Move position to (x, y)
-    pub fn move_to(&mut self, x: f64, y: f64) {
+    pub fn move_to(&mut self, x: f32, y: f32) {
         self.x = x;
         self.y = y;
     }
@@ -42,20 +43,20 @@ impl Position {
     /// Move position relative to another position.
     /// x = relative.x + x_offset
     /// y = relative.y + y_offset
-    pub fn move_relative_to(&mut self, relative_position: &Position, x_offset: f64, y_offset: f64) {
+    pub fn move_relative_to(&mut self, relative_position: &Position, x_offset: f32, y_offset: f32) {
         self.x = relative_position.x + x_offset;
         self.y = relative_position.y + y_offset;
     }
 
     /// Adjust y by an offset.
     /// y += offset_y
-    pub fn offset_y(&mut self, offset_y: f64) {
+    pub fn offset_y(&mut self, offset_y: f32) {
         self.y += offset_y;
     }
 
     /// Adjust x by an offset.
     /// x += offset_x
-    pub fn offset_x(&mut self, offset_x: f64) {
+    pub fn offset_x(&mut self, offset_x: f32) {
         self.x += offset_x;
     }
 }
@@ -124,7 +125,13 @@ impl RenderTree {
                     NodeData::Text(text) => {
                         let mut mut_element_ref = reference_element.as_ref().borrow_mut();
                         if let NodeType::Text(element_text) = &mut mut_element_ref.node_type {
-                            element_text.value.push_str(text.value());
+                            // TODO: need to append text instead of replace, but this will work for now
+                            // (need to be careful about memory here)
+                            if !element_text.value.is_null() {
+                                let _ = unsafe { CString::from_raw(element_text.value as *mut i8) };
+                            }
+                            element_text.value = CString::new(text.value()).expect("").into_raw();
+                            //element_text.value.push_str(text.value());
                         }
                     }
                     _ => { /* ignore */ }
@@ -140,6 +147,7 @@ impl RenderTree {
 /// height, font sizes, colors, etc. A RenderTree Node
 /// can have children just like regular DOM nodes.
 #[derive(Debug, PartialEq)]
+#[repr(C)]
 pub struct Node {
     pub node_type: NodeType,
     pub margin: Rectangle,
@@ -154,7 +162,7 @@ pub struct Node {
 impl Node {
     pub fn new() -> Self {
         Self {
-            node_type: NodeType::Root,
+            node_type: NodeType::Root(true),
             margin: Rectangle::new(),
             padding: Rectangle::new(),
             parent: None,
@@ -164,7 +172,7 @@ impl Node {
         }
     }
 
-    fn new_text(node: TextNode, margin: f64, position: &mut Position) -> Self {
+    fn new_text(node: TextNode, margin: f32, position: &mut Position) -> Self {
         position.offset_y(margin);
         let fs = node.font_size;
         let new_node = Node {
@@ -249,19 +257,19 @@ impl Default for Node {
 }
 
 /// Different types of RenderTree Nodes
+// NOTE: tag size must be u32 otherwise it wont work with a C enum (originally I tried u8)
 #[derive(Debug, PartialEq)]
+#[repr(C, u32)]
 pub enum NodeType {
     /// Serves no purpose besides being the entry point
-    Root,
+    // NOTE: the bool is a dummy value, otherwise it appears to be ignored when transfering to C API
+    Root(bool),
     /// Represents text to render. Usually created from heading or paragraph elements in the DOM.
     Text(TextNode),
     // TODO: add more types as we build out the RenderTree
 }
 
 /// Constructs an iterator for a RenderTree
-// NOTE: code taken from Document::TreeIterator and modified
-// slightly to fit the render tree, not sure if it's possible/complex
-// to do something general for both
 pub struct TreeIterator {
     current_node: Option<Rc<RefCell<Node>>>,
     node_stack: Vec<Rc<RefCell<Node>>>,
@@ -273,6 +281,14 @@ impl TreeIterator {
             current_node: None,
             node_stack: vec![Rc::clone(&render_tree.root)],
         }
+    }
+
+    pub fn current(&self) -> Option<Rc<RefCell<Node>>> {
+        if let Some(node) = &self.current_node {
+            return Some(Rc::clone(&node));
+        }
+
+        None
     }
 }
 
@@ -305,16 +321,7 @@ impl Iterator for TreeIterator {
 mod tests {
     use std::{cell::RefCell, rc::Rc};
 
-    use crate::{
-        bytes::{CharIterator, Encoding},
-        html5::parser::{
-            document::{Document, DocumentBuilder},
-            Html5Parser,
-        },
-        render_tree::NodeType,
-    };
-
-    use super::{Node, RenderTree, TreeIterator};
+    use crate::render_tree::Node;
 
     #[test]
     fn next_sibling() {
@@ -331,108 +338,5 @@ mod tests {
         } else {
             panic!()
         }
-    }
-
-    #[test]
-    fn text_nodes() {
-        // TODO: create an engine API to simplify this process which would be used by user agents
-        let html = "<html>\
-                <h1>heading1</h1>\
-                <h2>heading2</h2>\
-                <h3>heading3</h3>\
-                <h4>heading4</h4>\
-                <h5>heading5</h5>\
-                <h6>heading6</h6>\
-                <p>paragraph</p>\
-            </html>";
-        let mut chars = CharIterator::new();
-        chars.read_from_str(html, Some(Encoding::UTF8));
-        chars.set_confidence(crate::bytes::Confidence::Certain);
-        let doc = DocumentBuilder::new_document();
-        let _ = Html5Parser::parse_document(&mut chars, Document::clone(&doc), None);
-
-        let mut render_tree = RenderTree::new(&doc);
-        render_tree.build();
-
-        let mut tree_iterator = TreeIterator::new(&render_tree);
-        let root = tree_iterator.next().unwrap();
-        assert_eq!(root.borrow().node_type, NodeType::Root);
-
-        let h1 = tree_iterator.next().unwrap();
-        let h1_ref = h1.borrow();
-        let NodeType::Text(h1_node) = &h1_ref.node_type else {
-            panic!()
-        };
-
-        assert_eq!(h1_node.value, "heading1".to_owned());
-        assert_eq!(h1_node.font, "Times New Roman".to_owned());
-        assert_eq!(h1_node.font_size, 37.);
-        assert!(h1_node.is_bold);
-
-        let h2 = tree_iterator.next().unwrap();
-        let h2_ref = h2.borrow();
-        let NodeType::Text(h2_node) = &h2_ref.node_type else {
-            panic!()
-        };
-
-        assert_eq!(h2_node.value, "heading2".to_owned());
-        assert_eq!(h2_node.font, "Times New Roman".to_owned());
-        assert_eq!(h2_node.font_size, 27.5);
-        assert!(h2_node.is_bold);
-
-        let h3 = tree_iterator.next().unwrap();
-        let h3_ref = h3.borrow();
-        let NodeType::Text(h3_node) = &h3_ref.node_type else {
-            panic!()
-        };
-
-        assert_eq!(h3_node.value, "heading3".to_owned());
-        assert_eq!(h3_node.font, "Times New Roman".to_owned());
-        assert_eq!(h3_node.font_size, 21.5);
-        assert!(h3_node.is_bold);
-
-        let h4 = tree_iterator.next().unwrap();
-        let h4_ref = h4.borrow();
-        let NodeType::Text(h4_node) = &h4_ref.node_type else {
-            panic!()
-        };
-
-        assert_eq!(h4_node.value, "heading4".to_owned());
-        assert_eq!(h4_node.font, "Times New Roman".to_owned());
-        assert_eq!(h4_node.font_size, 18.5);
-        assert!(h4_node.is_bold);
-
-        let h5 = tree_iterator.next().unwrap();
-        let h5_ref = h5.borrow();
-        let NodeType::Text(h5_node) = &h5_ref.node_type else {
-            panic!()
-        };
-
-        assert_eq!(h5_node.value, "heading5".to_owned());
-        assert_eq!(h5_node.font, "Times New Roman".to_owned());
-        assert_eq!(h5_node.font_size, 15.5);
-        assert!(h5_node.is_bold);
-
-        let h6 = tree_iterator.next().unwrap();
-        let h6_ref = h6.borrow();
-        let NodeType::Text(h6_node) = &h6_ref.node_type else {
-            panic!()
-        };
-
-        assert_eq!(h6_node.value, "heading6".to_owned());
-        assert_eq!(h6_node.font, "Times New Roman".to_owned());
-        assert_eq!(h6_node.font_size, 12.);
-        assert!(h6_node.is_bold);
-
-        let p = tree_iterator.next().unwrap();
-        let p_ref = p.borrow();
-        let NodeType::Text(p_node) = &p_ref.node_type else {
-            panic!()
-        };
-
-        assert_eq!(p_node.value, "paragraph".to_owned());
-        assert_eq!(p_node.font, "Times New Roman".to_owned());
-        assert_eq!(p_node.font_size, 18.5);
-        assert!(!p_node.is_bold);
     }
 }

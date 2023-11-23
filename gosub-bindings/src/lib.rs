@@ -1,3 +1,5 @@
+use std::ffi::CString;
+use std::os::raw::c_char;
 use std::{cell::RefCell, f64::consts, ptr, rc::Rc};
 
 use gosub_engine::{
@@ -43,6 +45,14 @@ pub extern "C" fn render_tree_iterator_init(render_tree: *const RenderTree) -> *
 /// Takes a tree_iterator and returns a non-owning pointer to the next node
 pub extern "C" fn render_tree_next_node(tree_iterator: *mut TreeIterator) -> *const Node {
     unsafe {
+        if let Some(current_node) = (*tree_iterator).current() {
+            if let NodeType::Text(text) = &mut current_node.borrow_mut().node_type {
+                // recover char* pointers and let Rust free them
+                let _ = CString::from_raw(text.font as *mut c_char);
+                let _ = CString::from_raw(text.value as *mut c_char);
+            }
+        }
+
         let next = (*tree_iterator).next();
         if next.is_none() {
             return ptr::null();
@@ -62,4 +72,16 @@ pub extern "C" fn render_tree_get_node_data(node: *const Node, node_data: *mut N
     }
 }
 
-// TODO: add a render_tree_free() to cleanup memory
+#[no_mangle]
+pub extern "C" fn render_tree_iterator_free(tree_iterator: *mut TreeIterator) {
+    unsafe {
+        let _ = Box::from_raw(tree_iterator);
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn render_tree_free(render_tree: *mut RenderTree) {
+    unsafe {
+        let _ = Box::from_raw(render_tree);
+    }
+}

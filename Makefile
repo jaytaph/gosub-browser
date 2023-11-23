@@ -1,6 +1,6 @@
 .SILENT:
 
-#SHELL=/usr/bin/env bash -O globstar
+SHELL=/usr/bin/env bash -O globstar
 
 all: help
 
@@ -21,11 +21,12 @@ format:  ## Fix formatting and clippy errors
 	cargo fmt
 	cargo clippy --fix --allow-dirty --allow-staged
 
-INCLUDE_DIR := gosub-bindings/include
-SRC_DIR := gosub-bindings/tests
+ROOT_DIR := gosub-bindings
+INCLUDE_DIR := $(ROOT_DIR)/include
+SRC_DIR := $(ROOT_DIR)/tests
 CPPFLAGS := -I$(INCLUDE_DIR)
 CFLAGS := -std=c99 -g -Wall -Wextra
-LDFLAGS := -Ltarget/debug
+LDFLAGS := -L$(ROOT_DIR)/target/debug
 LDLIBS := -lgosub_bindings
 CC := gcc
 bindings: ## build the gosub-bindings library and compile C code tests
