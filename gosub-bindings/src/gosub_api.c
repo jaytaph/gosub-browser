@@ -34,6 +34,8 @@ struct render_tree_t *render_tree_init() {
 const struct node_t *render_tree_next(struct render_tree_t *render_tree) {
   render_tree->current_node =
       gosub_render_tree_next_node(render_tree->iterator);
+  if (!render_tree->current_node)
+    return NULL;
   gosub_render_tree_get_node_data(render_tree->current_node, render_tree->data);
   return (const struct node_t *)render_tree->data;
 }

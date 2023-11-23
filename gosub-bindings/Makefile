@@ -1,3 +1,5 @@
+# TODO: export libgosub.a and libgosub_bindings.a to a lib/ folder in make bindings
+
 # "global" compile settings
 INCLUDE_DIR := include
 SRC_DIR := src
@@ -9,13 +11,12 @@ CC := gcc
 
 LDFLAGS := -L./target/debug
 NODE_SRC_DIR := $(SRC_DIR)/nodes
-bindings: ## build the gosub-bindings library and compile/run C code tests
-	# build gosub static lib and link with rust bindings
+bindings: # build gosub static library to be used externally
 	$(CC) $(CFLAGS) $(CPPFLAGS) -c $(SRC_DIR)/gosub_api.c $(SRC_DIR)/nodes.c $(NODE_SRC_DIR)/text.c
 	ar rcs libgosub.a gosub_api.o nodes.o text.o
 	rm *.o
 
 TEST_SRC_DIR := tests
 test: # build and run tests for bindings
-	$(CC) $(TEST_SRC_DIR)/render_tree_test.c -L./ -lgosub -L./target/debug -lgosub_bindings -o $(SRC_DIR)/render_tree_test $(CPPFLAGS) $(CFLAGS)
-	./$(SRC_DIR)/render_tree_test
+	$(CC) $(TEST_SRC_DIR)/render_tree_test.c -L./ -lgosub -L./target/debug -lgosub_bindings -lsqlite3 -lm -o $(TEST_SRC_DIR)/render_tree_test $(CPPFLAGS) $(CFLAGS)
+	./$(TEST_SRC_DIR)/render_tree_test
