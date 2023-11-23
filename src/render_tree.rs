@@ -261,7 +261,7 @@ impl Default for Node {
 
 /// Different types of RenderTree Nodes
 // NOTE: tag size must be u32 otherwise it wont work with a C enum (originally I tried u8)
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 #[repr(C, u32)]
 pub enum NodeType {
     /// Serves no purpose besides being the entry point

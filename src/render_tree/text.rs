@@ -1,6 +1,6 @@
 use std::{ffi::CString, os::raw::c_char};
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 #[repr(C)]
 pub struct TextNode {
     /// Body of the text node that will be drawn

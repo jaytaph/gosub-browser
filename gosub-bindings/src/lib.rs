@@ -71,11 +71,7 @@ pub extern "C" fn gosub_render_tree_next_node(tree_iterator: *mut TreeIterator) 
 #[no_mangle]
 pub extern "C" fn gosub_render_tree_get_node_data(node: *const Node, node_data: *mut NodeType) {
     unsafe {
-        ptr::copy_nonoverlapping(
-            &(*node).node_type,
-            node_data,
-            std::mem::size_of::<NodeType>(),
-        );
+        *node_data = (*node).node_type.clone();
     }
 }
 
