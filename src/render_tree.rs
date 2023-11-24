@@ -2,7 +2,7 @@ use std::borrow::BorrowMut;
 use std::ffi::{c_char, CString};
 use std::{cell::RefCell, rc::Rc};
 
-use libc::size_t;
+use libc::{c_void, size_t};
 
 use crate::bytes::{CharIterator, Encoding};
 use crate::html5::node::NodeData;
@@ -128,12 +128,20 @@ impl RenderTree {
                         let mut mut_element_ref = reference_element.as_ref().borrow_mut();
                         if let NodeType::Text(element_text) = &mut mut_element_ref.node_type {
                             unsafe {
-                                // Rust strings are NOT null terminated, using strncat to be safe(r)
-                                libc::strncat(
-                                    element_text.value,
-                                    text.value().as_ptr() as *const c_char,
-                                    text.value().len() as size_t,
+                                let try_realloc = libc::realloc(
+                                    element_text.value as *mut c_void,
+                                    libc::strlen(element_text.value)
+                                        + text.value().len()
+                                        + 1 as size_t,
                                 );
+                                if !try_realloc.is_null() {
+                                    element_text.value = try_realloc as *mut c_char;
+                                    libc::strncat(
+                                        element_text.value,
+                                        text.value().as_ptr() as *const c_char,
+                                        text.value().len() as size_t,
+                                    );
+                                }
                             }
                         }
                     }
