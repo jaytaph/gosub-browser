@@ -1,14 +1,13 @@
 use std::borrow::BorrowMut;
-use std::ffi::{c_char, CString};
+use std::ffi::c_char;
 use std::{cell::RefCell, rc::Rc};
 
 use libc::{c_void, size_t};
 
-use crate::bytes::{CharIterator, Encoding};
 use crate::html5::node::NodeData;
-use crate::html5::parser::document::{self, DocumentBuilder};
+use crate::html5::parser::document::{self};
 use crate::html5::parser::document::{Document, DocumentHandle};
-use crate::html5::parser::Html5Parser;
+
 use crate::render_tree::{properties::Rectangle, text::TextNode};
 
 pub mod properties;
@@ -296,7 +295,7 @@ impl TreeIterator {
 
     pub fn current(&self) -> Option<Rc<RefCell<Node>>> {
         if let Some(node) = &self.current_node {
-            return Some(Rc::clone(&node));
+            return Some(Rc::clone(node));
         }
 
         None

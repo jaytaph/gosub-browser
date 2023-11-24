@@ -20,3 +20,6 @@ TEST_SRC_DIR := tests
 test: # build and run tests for bindings
 	$(CC) $(TEST_SRC_DIR)/render_tree_test.c -L./ -lgosub -L./target/debug -lgosub_bindings -lsqlite3 -lm -o $(TEST_SRC_DIR)/render_tree_test $(CPPFLAGS) $(CFLAGS)
 	./$(TEST_SRC_DIR)/render_tree_test
+
+format:
+	cargo clippy --fix --allow-dirty --allow-staged
