@@ -1,5 +1,3 @@
-# TODO: export libgosub.a and libgosub_bindings.a to a lib/ folder in make bindings
-
 # "global" compile settings
 INCLUDE_DIR := include
 SRC_DIR := src
@@ -15,6 +13,9 @@ bindings: # build gosub static library to be used externally
 	$(CC) $(CFLAGS) $(CPPFLAGS) -c $(SRC_DIR)/gosub_api.c $(SRC_DIR)/nodes.c $(NODE_SRC_DIR)/text.c
 	ar rcs libgosub.a gosub_api.o nodes.o text.o
 	rm *.o
+	test -d lib || mkdir lib
+	cp ./target/debug/libgosub_bindings.a lib/
+	cp ./libgosub.a lib/
 
 TEST_SRC_DIR := tests
 test: # build and run tests for bindings
