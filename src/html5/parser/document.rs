@@ -605,6 +605,10 @@ impl Clone for DocumentHandle {
 impl Eq for DocumentHandle {}
 
 impl DocumentHandle {
+    pub fn into_raw(&self) -> *const RefCell<Document> {
+        Rc::into_raw(self.0.clone())
+    }
+
     /// Retrieves an immutable reference to the document
     pub fn get(&self) -> impl Deref<Target = Document> + '_ {
         self.0.borrow()

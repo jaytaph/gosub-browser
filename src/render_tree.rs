@@ -141,6 +141,8 @@ impl RenderTree {
                 }
             }
         }
+
+        let p = doc.into_raw();
     }
 }
 
