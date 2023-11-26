@@ -831,19 +831,19 @@ impl TreeBuilder for DocumentHandle {
         position: Option<usize>,
         namespace: &str,
     ) -> NodeId {
-        let new_element = Node::new_element(self, name, HashMap::new(), namespace);
+        let new_element = Node::new_element(name, HashMap::new(), namespace);
         self.add_node(new_element, parent_id, position)
     }
 
     /// Creates and attaches a new text node to the document
     fn create_text(&mut self, content: &str, parent_id: NodeId) -> NodeId {
-        let new_text = Node::new_text(self, content);
+        let new_text = Node::new_text(content);
         self.add_node(new_text, parent_id, None)
     }
 
     /// Creates and attaches a new comment node to the document
     fn create_comment(&mut self, content: &str, parent_id: NodeId) -> NodeId {
-        let new_comment = Node::new_comment(self, content);
+        let new_comment = Node::new_comment(content);
         self.add_node(new_comment, parent_id, None)
     }
 
@@ -867,7 +867,7 @@ impl DocumentBuilder {
         let mut doc = Document::shared();
 
         let handle = &Document::clone(&doc);
-        let node = Node::new_document(handle);
+        let node = Node::new_document();
         doc.get_mut().arena.register_node(node);
 
         doc
@@ -878,15 +878,17 @@ impl DocumentBuilder {
         let mut doc = Document::shared();
         doc.get_mut().doctype = DocumentType::HTML;
 
+        /*
         if context.document.get().quirks_mode == QuirksMode::Quirks {
             doc.get_mut().quirks_mode = QuirksMode::Quirks;
         } else if context.document.get().quirks_mode == QuirksMode::LimitedQuirks {
             doc.get_mut().quirks_mode = QuirksMode::LimitedQuirks;
         }
+        */
 
         // @TODO: Set tokenizer state based on context element
 
-        let html_node = Node::new_element(&doc, "html", HashMap::new(), HTML_NAMESPACE);
+        let html_node = Node::new_element("html", HashMap::new(), HTML_NAMESPACE);
         // doc.get_mut().arena.register_node(html_node);
         doc.add_node(html_node, NodeId::root(), None);
 
@@ -951,11 +953,11 @@ mod tests {
     fn relocate() {
         let mut document = DocumentBuilder::new_document();
 
-        let parent = Node::new_element(&document, "parent", HashMap::new(), HTML_NAMESPACE);
-        let node1 = Node::new_element(&document, "div1", HashMap::new(), HTML_NAMESPACE);
-        let node2 = Node::new_element(&document, "div2", HashMap::new(), HTML_NAMESPACE);
-        let node3 = Node::new_element(&document, "div3", HashMap::new(), HTML_NAMESPACE);
-        let node3_1 = Node::new_element(&document, "div3_1", HashMap::new(), HTML_NAMESPACE);
+        let parent = Node::new_element("parent", HashMap::new(), HTML_NAMESPACE);
+        let node1 = Node::new_element("div1", HashMap::new(), HTML_NAMESPACE);
+        let node2 = Node::new_element("div2", HashMap::new(), HTML_NAMESPACE);
+        let node3 = Node::new_element("div3", HashMap::new(), HTML_NAMESPACE);
+        let node3_1 = Node::new_element("div3_1", HashMap::new(), HTML_NAMESPACE);
 
         let parent_id = document.get_mut().add_node(parent, NodeId::from(0), None);
         let node1_id = document.get_mut().add_node(node1, parent_id, None);
@@ -1038,8 +1040,8 @@ mod tests {
     fn verify_node_ids_in_element_data() {
         let mut document = DocumentBuilder::new_document();
 
-        let node1 = Node::new_element(&document, "div", HashMap::new(), HTML_NAMESPACE);
-        let node2 = Node::new_element(&document, "div", HashMap::new(), HTML_NAMESPACE);
+        let node1 = Node::new_element("div", HashMap::new(), HTML_NAMESPACE);
+        let node2 = Node::new_element("div", HashMap::new(), HTML_NAMESPACE);
 
         document.get_mut().add_node(node1, NodeId::from(0), None);
         document.get_mut().add_node(node2, NodeId::from(0), None);

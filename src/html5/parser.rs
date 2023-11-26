@@ -321,7 +321,7 @@ impl<'chars> Html5Parser<'chars> {
         document.get_mut().doctype = DocumentType::HTML;
 
         // 2.
-        document.get_mut().quirks_mode = context_node.document.get().quirks_mode;
+        //document.get_mut().quirks_mode = context_node.document.get().quirks_mode;
 
         // 3.
         let error_logger = Rc::new(RefCell::new(ErrorLogger::new()));
@@ -1826,19 +1826,16 @@ impl<'chars> Html5Parser<'chars> {
                 sys_identifier,
                 ..
             } => Node::new_doctype(
-                &self.document,
                 &name.clone().unwrap_or_default(),
                 &pub_identifier.clone().unwrap_or_default(),
                 &sys_identifier.clone().unwrap_or_default(),
             ),
             Token::StartTag {
                 name, attributes, ..
-            } => Node::new_element(&self.document, name, attributes.clone(), namespace),
-            Token::EndTag { name, .. } => {
-                Node::new_element(&self.document, name, HashMap::new(), namespace)
-            }
-            Token::Comment(value) => Node::new_comment(&self.document, value),
-            Token::Text(value) => Node::new_text(&self.document, value.to_string().as_str()),
+            } => Node::new_element(name, attributes.clone(), namespace),
+            Token::EndTag { name, .. } => Node::new_element(name, HashMap::new(), namespace),
+            Token::Comment(value) => Node::new_comment(value),
+            Token::Text(value) => Node::new_text(value.to_string().as_str()),
             Token::Eof => {
                 panic!("EOF token not allowed");
             }
@@ -3964,7 +3961,7 @@ impl<'chars> Html5Parser<'chars> {
     // Initialize all parser settings for parsing a fragment case
     fn initialize_fragment_case(&mut self, context_node: &Node) {
         self.is_fragment_case = true;
-        self.context_doc = Some(Document::clone(&context_node.document));
+        //self.context_doc = Some(Document::clone(&context_node.document));
         self.context_node_id = Some(context_node.id);
         self.tokenizer
             .set_state(self.find_initial_state_for_context(context_node));
@@ -4063,7 +4060,7 @@ mod test {
 
     macro_rules! node_create {
         ($self:expr, $name:expr) => {{
-            let node = Node::new_element(&$self.document, $name, HashMap::new(), HTML_NAMESPACE);
+            let node = Node::new_element($name, HashMap::new(), HTML_NAMESPACE);
             let node_id = $self
                 .document
                 .get_mut()

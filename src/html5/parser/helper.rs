@@ -441,12 +441,8 @@ impl Html5Parser<'_> {
                     NodeData::Element(element) => element.attributes.clone(),
                     _ => HashMap::new(),
                 };
-                let replacement_node = Node::new_element(
-                    &self.document,
-                    &element.name,
-                    node_attributes,
-                    HTML_NAMESPACE,
-                );
+                let replacement_node =
+                    Node::new_element(&element.name, node_attributes, HTML_NAMESPACE);
                 let replace_node_id = self.document.get_mut().add_new_node(replacement_node);
 
                 self.active_formatting_elements[node_active_position] =
@@ -481,7 +477,6 @@ impl Html5Parser<'_> {
                 _ => HashMap::new(),
             };
             let new_format_node: Node = Node::new_element(
-                &self.document,
                 &format_elem_node.name,
                 format_elem_attributes,
                 HTML_NAMESPACE,
