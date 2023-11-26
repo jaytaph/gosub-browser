@@ -35,21 +35,11 @@ pub unsafe extern "C" fn gosub_render_tree_init(html: *const c_char) -> *mut Ren
             return ptr::null_mut();
         }
     };
-    let mut chars = CharIterator::new();
-    chars.read_from_str(html_str, Some(Encoding::UTF8));
-    chars.set_confidence(Confidence::Certain);
 
-    let doc = DocumentBuilder::new_document();
-    let parse_result = Html5Parser::parse_document(&mut chars, Document::clone(&doc), None);
-
-    if parse_result.is_ok() {
-        let mut render_tree = Box::new(RenderTree::new(&doc));
-        render_tree.build();
-
-        Box::into_raw(render_tree)
-    } else {
-        ptr::null_mut()
-    }
+    let mut render_tree = Box::new(RenderTree::new());
+    // TODO: if this fails, return null ptr (again)
+    render_tree.build(html_str);
+    Box::into_raw(render_tree)
 }
 
 /// Construct a tree iterator for a render tree and return an owning pointer to it.

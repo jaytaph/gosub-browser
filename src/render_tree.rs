@@ -1,9 +1,11 @@
 use std::borrow::BorrowMut;
 use std::{cell::RefCell, rc::Rc};
 
+use crate::bytes::{CharIterator, Confidence, Encoding};
 use crate::html5::node::NodeData;
-use crate::html5::parser::document;
+use crate::html5::parser::document::{self, DocumentBuilder};
 use crate::html5::parser::document::{Document, DocumentHandle};
+use crate::html5::parser::Html5Parser;
 
 use crate::render_tree::{properties::Rectangle, text::TextNode};
 
@@ -69,9 +71,6 @@ impl Default for Position {
 /// that combines the DOM and CSSOM to compute layouts and styles
 /// for objects to draw on the screen.
 pub struct RenderTree {
-    /// Pointer to the underlying document that builds this render tree
-    // TODO: Add CSSOM here as well when we get to that point
-    document: DocumentHandle,
     /// Entry point of the render tree
     // TODO: make this a NodeHandle to make operations easier and not
     // have to keep doing borrow(), borrow_mut() etc.
@@ -84,23 +83,35 @@ pub struct RenderTree {
 }
 
 impl RenderTree {
-    pub fn new(document: &DocumentHandle) -> Self {
+    pub fn new() -> Self {
         Self {
-            document: Document::clone(document),
             root: Rc::new(RefCell::new(Node::new())),
             position: Position::new(),
         }
     }
 
-    pub fn build(&mut self) {
+    pub fn build(&mut self, html: &str) {
+        // TODO: replace with with Joshua's DNS system
+        let mut chars = CharIterator::new();
+        chars.read_from_str(html, Some(Encoding::UTF8));
+        chars.set_confidence(Confidence::Certain);
+
+        let doc = DocumentBuilder::new_document();
+        let parse_result = Html5Parser::parse_document(&mut chars, Document::clone(&doc), None);
+
+        // TODO: return Err if render tree fails to build
+        if !parse_result.is_ok() {
+            return;
+        }
+
         // start with a clean root (if build is called multiple times)
         self.root = Rc::new(RefCell::new(Node::new()));
 
-        let tree_iterator = document::TreeIterator::new(&self.document);
+        let tree_iterator = document::TreeIterator::new(&doc);
         let mut reference_element = Rc::clone(&self.root);
 
         for current_node_id in tree_iterator {
-            let doc_read = self.document.get();
+            let doc_read = doc.get();
             if let Some(current_node) = doc_read.get_node_by_id(current_node_id) {
                 match &current_node.data {
                     NodeData::Element(element) => {
